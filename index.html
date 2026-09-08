@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Timmy Happiness Index</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect width='72' height='72' rx='16' fill='%2314213D'/%3E%3Ccircle cx='36' cy='36' r='20' fill='none' stroke='%23FCA311' stroke-width='4'/%3E%3Ccircle cx='28' cy='30' r='3' fill='%23FCA311'/%3E%3Ccircle cx='44' cy='30' r='3' fill='%23FCA311'/%3E%3Cpath d='M25 42 Q36 52 47 42' stroke='%23FCA311' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-brand-icon"><i class="ti ti-building-community"></i></div>
+    <div><div class="sb-brand-name">IDN People</div><div class="sb-brand-sub">HR Analytics</div></div>
+  </div>
+  <nav class="sb-nav" id="sbNav">
+    <div class="sb-nav-label">MAIN MENU</div>
+    <div class="sb-indicator" id="sbIndicator"></div>
+    <button class="sb-item active" data-tab="overview"><i class="ti ti-layout-dashboard"></i><span>Overview</span></button>
+    <button class="sb-item" data-tab="participation"><i class="ti ti-users"></i><span>Participation</span></button>
+    <button class="sb-item" data-tab="department"><i class="ti ti-grid-dots"></i><span>Heatmap</span></button>
+    <button class="sb-item" data-tab="comparison"><i class="ti ti-arrows-left-right"></i><span>Comparison</span></button>
+    <button class="sb-item" data-tab="feedback"><i class="ti ti-message-circle"></i><span>Feedback</span></button>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-footer-label">Developed by</div>
+    <div class="sb-footer-name">People &amp; Culture Team</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrap" id="mainWrap">
+
+  <!-- TOPBAR -->
+  <header class="topbar" id="topbar">
+    <div class="topbar-left">
+      <button class="topbar-toggle" id="sidebarToggle"><i class="ti ti-menu-2"></i></button>
+      <div>
+        <div class="topbar-title">Timmy Happiness Index</div>
+        <div class="topbar-sub" id="topbarSub">Overview Dashboard</div>
+      </div>
+    </div>
+    <div class="topbar-filters">
+      <div class="filter-chip fc-quarter">
+        <i class="ti ti-calendar-event"></i>
+        <select id="filterQuarter" class="chip-select"></select>
+      </div>
+      <div class="filter-chip fc-method">
+        <i class="ti ti-chart-bar"></i>
+        <select id="filterMethod" class="chip-select">
+          <option value="avg">Average per 7</option>
+          <option value="fav567">Population 5,6,7</option>
+          <option value="fav67">Population 6,7</option>
+        </select>
+      </div>
+      <div class="filter-chip fc-dept">
+        <i class="ti ti-building"></i>
+        <select id="filterDept" class="chip-select"><option value="all">All Departments</option></select>
+      </div>
+      <div class="filter-chip fc-tenure">
+        <i class="ti ti-clock"></i>
+        <select id="filterTenure" class="chip-select"><option value="all">All Tenure</option></select>
+      </div>
+      <div class="filter-chip fc-city">
+        <i class="ti ti-map-pin"></i>
+        <select id="filterCity" class="chip-select"><option value="all">All Locations</option></select>
+      </div>
+      <div class="filter-chip decimals-chip fc-decimals">
+        <span>Decimals</span>
+        <div class="toggle" id="decimalsToggle"><div class="toggle-thumb"></div></div>
+      </div>
+      <button class="reset-btn" id="btnReset"><i class="ti ti-refresh"></i> Reset</button>
+    </div>
+  </header>
+
+  <main class="page" id="page">
+
+    <!-- LOADING -->
+    <div id="loadingState" class="loading-state">
+      <div class="skel-wrap">
+        <div class="skel-row">
+          <div class="skel" style="height:200px;border-radius:14px;flex:1.15"></div>
+          <div class="skel" style="height:200px;border-radius:14px;flex:1"></div>
+        </div>
+        <div class="skel-row">
+          <div class="skel" style="height:110px;border-radius:14px;flex:1"></div>
+          <div class="skel" style="height:110px;border-radius:14px;flex:1"></div>
+          <div class="skel" style="height:110px;border-radius:14px;flex:1"></div>
+          <div class="skel" style="height:110px;border-radius:14px;flex:1"></div>
+        </div>
+        <div class="skel-row">
+          <div class="skel" style="height:220px;border-radius:14px;flex:1"></div>
+          <div class="skel" style="height:220px;border-radius:14px;flex:1"></div>
+        </div>
+      </div>
+      <p>Loading survey data…</p>
+    </div>
+
+    <div id="appContent" style="display:none">
+
+      <!-- ══ OVERVIEW ══ -->
+      <section class="tab-pane active" id="tab-overview">
+
+        <!-- HERO ROW -->
+        <div class="hero-row">
+          <!-- Main KPI Hero -->
+          <div class="hero-kpi-card" id="heroCard">
+            <div class="hero-blob" style="width:160px;height:160px;top:-60px;right:10%;background:radial-gradient(circle,rgba(252,163,17,.16) 0%,transparent 70%);animation-delay:0s"></div>
+            <div class="hero-blob" style="width:110px;height:110px;bottom:-50px;right:35%;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 70%);animation-delay:2.5s"></div>
+            <div class="hero-kpi-label" id="heroTopLabel">TIMMY HAPPINESS INDEX</div>
+            <div class="hero-kpi-body">
+              <div class="hero-stats-row">
+                <div class="hero-stat-card">
+                  <div class="hero-stat-label">OKR Achievement</div>
+                  <div class="hero-stat-value" id="heroOkrValue">—</div>
+                  <div class="hero-stat-sub" id="heroOkrTarget"></div>
+                </div>
+                <div class="hero-stat-card hero-stat-pill">
+                  <div class="hero-pill-icon-wrap"><i class="ti ti-chart-bar"></i></div>
+                  <div>
+                    <div class="hero-stat-label">THI Score</div>
+                    <div class="hero-pill-val" id="heroRingCenter">—</div>
+                    <div class="hero-pill-delta" id="heroRingDelta" style="display:none"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="hero-kpi-right" id="heroIllus"></div>
+            </div>
+            <div class="hero-badges-row">
+              <div class="hero-delta" id="heroDelta"></div>
+            </div>
+          </div>
+
+          <!-- NPS Hero -->
+          <div class="hero-kpi-card hero-kpi-card-nps" id="npsHeroCard">
+            <div class="hero-blob nps-blob" style="width:150px;height:150px;top:-55px;right:8%;background:radial-gradient(circle,rgba(255,255,255,.5) 0%,transparent 70%);animation-delay:0.6s"></div>
+            <div class="hero-blob nps-blob" style="width:100px;height:100px;bottom:-40px;right:33%;background:radial-gradient(circle,rgba(42,131,95,.16) 0%,transparent 70%);animation-delay:2.8s"></div>
+            <div class="hero-blob nps-blob" style="width:70px;height:70px;top:20px;left:2%;background:radial-gradient(circle,rgba(255,255,255,.35) 0%,transparent 70%);animation-delay:4.4s"></div>
+            <svg class="nps-dot-pattern" width="60" height="60" viewBox="0 0 60 60" style="position:absolute;bottom:10px;left:8px;opacity:.4;z-index:0">
+              <circle cx="6" cy="6" r="2" fill="#3a5a7a"/><circle cx="20" cy="6" r="2" fill="#3a5a7a"/><circle cx="34" cy="6" r="2" fill="#3a5a7a"/>
+              <circle cx="6" cy="20" r="2" fill="#3a5a7a"/><circle cx="20" cy="20" r="2" fill="#3a5a7a"/>
+              <circle cx="6" cy="34" r="2" fill="#3a5a7a"/>
+            </svg>
+            <div class="hero-kpi-label" id="npsHeroTopLabel">NET PROMOTER SCORE</div>
+            <div class="hero-kpi-body">
+              <div class="hero-stats-row">
+                <div class="hero-stat-card">
+                  <div class="hero-stat-label">NPS Achievement</div>
+                  <div class="hero-stat-value nps-tone" id="npsHeroAchieveValue">—</div>
+                  <div class="hero-stat-sub" id="npsHeroTarget"></div>
+                </div>
+                <div class="hero-stat-card hero-stat-gauge">
+                  <div>
+                    <div class="hero-stat-label">NPS Score</div>
+                    <div class="hero-gauge-val" id="npsHeroScoreVal">—</div>
+                    <div class="hero-gauge-delta" id="npsHeroScoreDelta" style="display:none"></div>
+                  </div>
+                  <div class="hero-gauge-ring-wrap" id="npsGaugeRingWrap">
+                    <svg width="74" height="74" viewBox="0 0 74 74">
+                      <circle cx="37" cy="37" r="31" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="6"/>
+                      <circle id="npsGaugeRingFill" cx="37" cy="37" r="31" fill="none" stroke-width="6" stroke-dasharray="0 195" stroke-linecap="round" transform="rotate(-90 37 37)" style="transition:stroke-dasharray 1s var(--m3-ease-emphasized-decel)"/>
+                    </svg>
+                    <div class="hero-gauge-icon-wrap"><i class="ti ti-mood-smile" id="npsGaugeIcon"></i></div>
+                  </div>
+                </div>
+              </div>
+              <div class="hero-kpi-right" id="npsHeroIllus"></div>
+            </div>
+            <div class="hero-badges-row">
+              <div class="hero-delta" id="npsHeroDelta"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Insights + Participation Rate -->
+        <div class="insight-metrics-row">
+          <div class="hero-insights-card">
+            <div class="insights-header"><i class="ti ti-sparkles"></i> Top Insights</div>
+            <p id="insightsPara" style="font-size:.84rem;color:var(--text2);line-height:1.75;margin:0"></p>
+            <div id="aiSummaryWrap" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:none">
+              <div style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:5px"><i class="ti ti-message-dots"></i> What Timmys are talking about</div>
+              <p id="aiText" style="font-size:.84rem;color:var(--text2);line-height:1.75;margin:0"></p>
+            </div>
+          </div>
+          <div class="kpi-row" id="kpiRow"></div>
+        </div>
+
+        <!-- TREND + DISTRIBUTION ROW -->
+        <div class="analytics-row">
+          <div class="card card-trend">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+                <div style="width:40px;height:40px;border-radius:12px;background:#14213D18;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-chart-bar" style="font-size:1.15rem;color:var(--navy)"></i></div>
+                <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Timmy Happiness Index Trend</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">Overall score movement across quarters</div></div>
+              </div>
+            </div>
+            <div class="chart-wrap" style="flex:1;min-height:200px"><canvas id="trendChart"></canvas></div>
+          </div>
+          <div class="card card-dist">
+            <div id="distLegend" class="nps-breakdown-wrap"></div>
+          </div>
+        </div>
+
+        <!-- TOP/BOT DEPT + TOP/BOT AREA + TOP/BOT QUESTIONS -->
+        <div class="bottom-row">
+          <!-- LEFT: Top 3 + Bottom 3 Departments in ONE card -->
+          <div class="card merged-card merged-card-soft">
+            <div class="merged-blob" style="width:120px;height:120px;top:-45px;right:15px;background:radial-gradient(circle,rgba(252,163,17,.18) 0%,transparent 70%);animation-delay:0s"></div>
+            <div class="merged-blob" style="width:80px;height:80px;bottom:-30px;right:70px;background:radial-gradient(circle,rgba(20,33,61,.14) 0%,transparent 70%);animation-delay:2s"></div>
+            <div class="merged-top">
+              <div class="card-title-badged">
+                <div class="ctb-icon top-badge"><i class="ti ti-trophy"></i></div>
+                <span>Top 3 Departments</span>
+              </div>
+              <div id="top3Dept"></div>
+            </div>
+            <div class="card-divider"></div>
+            <div class="merged-bot">
+              <div class="card-title-badged">
+                <div class="ctb-icon bot-badge"><i class="ti ti-alert-triangle"></i></div>
+                <span>Bottom 3 Departments</span>
+              </div>
+              <div id="bot3Dept"></div>
+            </div>
+          </div>
+
+          <!-- MIDDLE: Top 3 + Bottom 3 Areas in ONE card -->
+          <div class="card merged-card merged-card-soft">
+            <div class="merged-blob" style="width:120px;height:120px;top:-45px;right:15px;background:radial-gradient(circle,rgba(252,163,17,.18) 0%,transparent 70%);animation-delay:1s"></div>
+            <div class="merged-blob" style="width:80px;height:80px;bottom:-30px;right:70px;background:radial-gradient(circle,rgba(20,33,61,.14) 0%,transparent 70%);animation-delay:3s"></div>
+            <div class="merged-top">
+              <div class="card-title-badged">
+                <div class="ctb-icon top-badge"><i class="ti ti-trending-up"></i></div>
+                <span>Top 3 Areas</span>
+              </div>
+              <div id="top3Areas"></div>
+            </div>
+            <div class="card-divider"></div>
+            <div class="merged-bot">
+              <div class="card-title-badged">
+                <div class="ctb-icon bot-badge"><i class="ti ti-trending-down"></i></div>
+                <span>Bottom 3 Areas</span>
+              </div>
+              <div id="bot3Areas"></div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Top 3 + Bottom 3 Questions in ONE card -->
+          <div class="card merged-card merged-card-soft">
+            <div class="merged-blob" style="width:120px;height:120px;top:-45px;right:15px;background:radial-gradient(circle,rgba(252,163,17,.18) 0%,transparent 70%);animation-delay:2s"></div>
+            <div class="merged-blob" style="width:80px;height:80px;bottom:-30px;right:70px;background:radial-gradient(circle,rgba(20,33,61,.14) 0%,transparent 70%);animation-delay:4s"></div>
+            <div class="merged-top">
+              <div class="card-title-badged">
+                <div class="ctb-icon top-badge"><i class="ti ti-thumb-up"></i></div>
+                <span>Top 3 Questions</span>
+              </div>
+              <div id="top3Q"></div>
+            </div>
+            <div class="card-divider"></div>
+            <div class="merged-bot">
+              <div class="card-title-badged">
+                <div class="ctb-icon bot-badge"><i class="ti ti-thumb-down"></i></div>
+                <span>Bottom 3 Questions</span>
+              </div>
+              <div id="bot3Q"></div>
+            </div>
+          </div>
+        </div>
+
+
+      </section>
+
+      <!-- ══ COMPARISON ══ -->
+      <section class="tab-pane" id="tab-comparison">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:40px;height:40px;border-radius:12px;background:#8B5CF622;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-arrows-left-right" style="font-size:1.15rem;color:#6d28d9"></i></div>
+          <div><div style="font-size:1.1rem;font-weight:700;color:var(--text)">Comparison</div><div style="font-size:.76rem;color:var(--text3);margin-top:1px">Area performance across quarters, and perception gaps between related survey questions</div></div>
+        </div>
+        <div class="card card-area-perf" style="display:flex;flex-direction:column;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="width:40px;height:40px;border-radius:12px;background:#FCA31122;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-list-details" style="font-size:1.15rem;color:#c97a00"></i></div>
+            <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Area Performance</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">Ranking of area scores, highest to lowest</div></div>
+          </div>
+          <div style="font-size:.68rem;color:var(--text3);margin-top:2px"><i class="ti ti-hand-click" style="font-size:.75rem;vertical-align:-1px"></i> Click an area's name to see its individual questions</div>
+          <div id="areaPerfList" style="flex:1;display:flex;flex-direction:column;justify-content:space-between"></div>
+        </div>
+        <div id="comparisonBody"></div>
+      </section>
+
+      <!-- ══ DEPARTMENT ══ -->
+      <section class="tab-pane" id="tab-department">
+        <div class="page-hdr"><h2 class="page-title"><i class="ti ti-grid-dots"></i> Heatmap</h2><p class="page-desc">Area scores per department and tenure — top 3 highlighted gold, bottom 3 red</p></div>
+
+        <!-- VIEW TOGGLE — switches only between overall chart and distribution chart -->
+        <div style="display:flex;gap:0;border:1px solid var(--border2);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:14px">
+          <button class="view-toggle-btn active" id="btnTableView" onclick="switchHeatmapView('table')">Overall Chart</button>
+          <button class="view-toggle-btn" id="btnDistView" onclick="switchHeatmapView('dist')">Distribution View</button>
+        </div>
+
+        <!-- OVERALL CHART (default) -->
+        <div id="heatmapTableView" class="hm-view active">
+          <div class="card" style="height:400px;display:flex;flex-direction:column;box-sizing:border-box">
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
+              <div style="width:40px;height:40px;border-radius:12px;background:#14213D18;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-chart-bar" style="font-size:1.15rem;color:var(--navy)"></i></div>
+              <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Overall Score by Department</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">Overall score comparison across departments</div></div>
+            </div>
+            <div id="deptOvWrap" style="position:relative;flex:1;min-height:0"><canvas id="deptOvChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- DISTRIBUTION VIEW (hidden by default) -->
+        <div id="heatmapDistView" class="hm-view">
+          <div class="card" style="height:400px;display:flex;flex-direction:column;box-sizing:border-box">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;flex-shrink:0">
+              <span style="font-size:.7rem;font-weight:700;color:var(--text3)">Area:</span>
+              <div id="areaChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+            <div style="font-size:.67rem;color:var(--text3);margin-bottom:12px;flex-shrink:0">Each dot = 1 respondent · Line = dept average · Y = raw score (1–7)</div>
+            <div style="display:flex;gap:0;flex:1;min-height:0">
+              <div style="width:28px;flex-shrink:0;position:relative">
+                <div id="bubbleYLabels" style="position:absolute;top:0;bottom:24px;left:0;right:0;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding-right:5px"></div>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+                <div id="bubbleArea" style="position:relative;flex:1;min-height:0;border-left:1.5px solid var(--border2);border-bottom:1.5px solid var(--border2)"></div>
+                <div id="bubbleXLabels" style="display:flex;margin-top:8px;min-height:28px;flex-shrink:0"></div>
+              </div>
+            </div>
+            <div id="bubbleLegend" style="display:flex;gap:14px;margin-top:12px;align-items:center;flex-wrap:wrap;font-size:.7rem;color:var(--text3);flex-shrink:0"></div>
+          </div>
+        </div>
+
+        <!-- TABLES — always visible -->
+        <div class="card" style="overflow-x:auto;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="width:40px;height:40px;border-radius:12px;background:#2a78d622;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-building" style="font-size:1.15rem;color:#1d4ed8"></i></div>
+            <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">THI Score by Department</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">Score per area, by department</div></div>
+          </div>
+          <table class="data-table dept-table"><thead><tr id="deptHead"></tr></thead><tbody id="deptBody"></tbody></table>
+        </div>
+        <div class="card" style="overflow-x:auto;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="width:40px;height:40px;border-radius:12px;background:#8B5CF622;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-stairs-up" style="font-size:1.15rem;color:#6d28d9"></i></div>
+            <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">THI Score by Level</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">Score per area, by level</div></div>
+          </div>
+          <table class="data-table dept-table" id="levelHeatmap"></table>
+        </div>
+        <div class="card" style="overflow-x:auto;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="width:40px;height:40px;border-radius:12px;background:#FCA31122;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-clock" style="font-size:1.15rem;color:#c97a00"></i></div>
+            <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">THI Score by Tenure</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">Score per area, by tenure</div></div>
+          </div>
+          <table class="data-table dept-table" id="tenureHeatmap"></table>
+        </div>
+      </section>
+
+
+      <!-- ══ PARTICIPATION ══ -->
+      <section class="tab-pane" id="tab-participation">
+        <div class="page-hdr">
+          <h2 class="page-title"><i class="ti ti-users"></i> Participation</h2>
+          <p class="page-desc">Survey participation rate trend, and breakdown by department, tenure, and level</p>
+        </div>
+
+        <!-- HERO CARD — full width, vertical stacked bars -->
+        <div class="part-hero-card" id="partHeroCard" style="margin-bottom:14px">
+          <div class="part-hero-left">
+            <div class="part-hero-label">Participation Rate</div>
+            <div class="part-hero-score" id="partHeroScore">—</div>
+            <div class="part-hero-sentiment" id="partHeroSentiment"></div>
+            <div class="part-hero-delta" id="partHeroDelta"></div>
+            <div class="part-hero-sub" id="partHeroSub"></div>
+          </div>
+          <div class="part-hero-divider"></div>
+          <div class="part-hero-right">
+            <div class="part-chart-title">Participation trend by quarter</div>
+            <div class="part-vbars" id="partVBars"></div>
+          </div>
+        </div>
+
+        <!-- DAILY TREND CHART -->
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="width:40px;height:40px;border-radius:12px;background:#16a34a22;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-trending-up" style="font-size:1.15rem;color:#16a34a"></i></div>
+            <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Participation Trend — Daily Progress</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">Cumulative % Timmys who completed the survey per day</div></div>
+          </div>
+          <div style="display:flex;gap:0">
+            <div style="width:36px;position:relative;flex-shrink:0">
+              <div id="partDailyYLabels" style="position:absolute;top:0;bottom:24px;right:0;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding-right:6px"></div>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+              <div id="partDailyChart" style="position:relative;height:180px;border-left:1.5px solid var(--border2);border-bottom:1.5px solid var(--border2)"></div>
+              <div id="partDailyXLabels" style="position:relative;height:36px;margin-top:6px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ROW 2: Tables side by side — Dept + Tenure -->
+        <div class="two-col" style="margin-bottom:14px">
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <div style="width:40px;height:40px;border-radius:12px;background:#2a78d622;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-building" style="font-size:1.15rem;color:#1d4ed8"></i></div>
+              <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Participation Rate — by Department</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">% Timmy participating, by department</div></div>
+            </div>
+            <div style="overflow-x:auto"><table class="data-table part-cmp-table" id="partDeptTable"></table></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="evc-card">
+              <div class="evc-illustration">
+                <svg viewBox="0 0 220 170" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <ellipse cx="110" cy="150" rx="95" ry="14" fill="#0d182908"/>
+                  <g transform="translate(140,92)"><circle cx="12" cy="12" r="12" fill="#ffffff"/><path d="M6 12l4 4 8-8" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g>
+                  <path d="M30 145c0-25 12-42 27-42s27 17 27 42" fill="#14213D"/>
+                  <circle cx="57" cy="60" r="22" fill="#FCEFDA"/>
+                  <path d="M83 148c0-28 13-46 29-46s29 18 29 46" fill="#FCA311"/>
+                  <circle cx="112" cy="52" r="24" fill="#F4DDA8"/>
+                  <path d="M143 145c0-25 12-42 27-42s27 17 27 42" fill="#10b981"/>
+                  <circle cx="170" cy="60" r="22" fill="#FCEFDA"/>
+                  <g transform="translate(12,6)"><rect x="0" y="0" width="34" height="24" rx="8" fill="#10b981"/><path d="M8 24l0 8 10-8" fill="#10b981"/><path d="M7 9l20 0M7 15l14 0" stroke="#fff" stroke-width="2" stroke-linecap="round"/></g>
+                  <g transform="translate(166,2)"><rect x="0" y="0" width="36" height="24" rx="8" fill="#FCA311"/><path d="M8 24l0 8 10-8" fill="#FCA311"/><circle cx="10" cy="12" r="2.2" fill="#fff"/><circle cx="18" cy="12" r="2.2" fill="#fff"/><circle cx="26" cy="12" r="2.2" fill="#fff"/></g>
+                  <g transform="translate(95,0)"><circle cx="15" cy="15" r="15" fill="#10b981"/><path d="M8 15l5 5 9-10" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g>
+                </svg>
+              </div>
+              <div class="evc-content">
+                <div class="evc-title">Every Voice Counts</div>
+                <div class="evc-desc">Thank you to every Timmys who make this survey the start of the change.</div>
+              </div>
+              <div class="evc-stat-box">
+                <div class="evc-sparkline" id="evcSparkline"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                <div style="width:40px;height:40px;border-radius:12px;background:#FCA31122;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-clock" style="font-size:1.15rem;color:#c97a00"></i></div>
+                <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Participation Rate — by Tenure</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">% Timmy participating, by tenure</div></div>
+              </div>
+              <div style="overflow-x:auto"><table class="data-table part-cmp-table" id="partTenureTable"></table></div>
+            </div>
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                <div style="width:40px;height:40px;border-radius:12px;background:#8B5CF622;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-stairs-up" style="font-size:1.15rem;color:#6d28d9"></i></div>
+                <div><div style="font-size:.78rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.04em">Participation Rate — by Level</div><div style="font-size:.72rem;color:var(--text3);margin-top:1px">% Timmy participating, by level</div></div>
+              </div>
+              <div style="overflow-x:auto"><table class="data-table part-cmp-table" id="partLevelTable"></table></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ══ FEEDBACK ══ -->
+      <section class="tab-pane" id="tab-feedback">
+        <div class="page-hdr"><h2 class="page-title"><i class="ti ti-message-circle"></i> Open-Ended Feedback</h2></div>
+        <div class="card" style="margin-bottom:14px"><div id="fbBarChart"></div></div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <svg width="52" height="42" viewBox="0 0 52 42" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink:0">
+              <rect x="1" y="1" width="32" height="24" rx="7" fill="#FCEFDA" stroke="#F4DDA8" stroke-width="1.4"/>
+              <path d="M10 25L10 34L20 25" fill="#FCEFDA" stroke="#F4DDA8" stroke-width="1.4" stroke-linejoin="round"/>
+              <circle cx="10.5" cy="13" r="2" fill="#EBC873"/><circle cx="17" cy="13" r="2" fill="#EBC873"/><circle cx="23.5" cy="13" r="2" fill="#EBC873"/>
+              <rect x="20" y="11" width="31" height="23" rx="7" fill="#E9EDF5" stroke="#D7DCE6" stroke-width="1.4"/>
+              <path d="M30 34L30 41L39 34" fill="#E9EDF5" stroke="#D7DCE6" stroke-width="1.4" stroke-linejoin="round"/>
+              <path d="M27 21H44M27 26H38" stroke="#8993A8" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <div>
+              <div class="card-title" style="margin-bottom:2px">Open Feedback by Department</div>
+              <div style="font-size:.74rem;color:var(--text3)">Timmy's voice from every department — summarized straight from the survey</div>
+            </div>
+          </div>
+          <div id="openFeedbackList"></div>
+        </div>
+      </section>
+
+
+    </div>
+    <footer class="page-footer">Data as of <span id="footerDate">—</span> · People &amp; Culture Team · IDN</footer>
+  </main>
+</div>
+
+<!-- ACCESS DENIED (invalid/missing token) -->
+<div id="accessDenied" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:var(--bg);padding:24px">
+  <div style="text-align:center;max-width:420px">
+    <i class="ti ti-lock" style="font-size:2.6rem;color:#94a3b8"></i>
+    <h2 style="margin:16px 0 8px;color:var(--text);font-size:1.15rem">Access Unavailable</h2>
+    <p style="color:#94a3b8;font-size:.88rem;line-height:1.65">This link is invalid or has expired. Please contact the People &amp; Culture team for a valid access link.</p>
+  </div>
+</div>
+
+<!-- PER-DEPARTMENT REPORT (single page, no sidebar — for sharing with dept managers) -->
+<div id="deptReportWrap" style="display:none">
+  <aside class="sidebar" id="drSidebar">
+    <div class="sb-brand">
+      <div class="sb-brand-icon"><i class="ti ti-building-community"></i></div>
+      <div><div class="sb-brand-name">IDN People</div><div class="sb-brand-sub">HR Analytics</div></div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-nav-label">MAIN MENU</div>
+      <button class="sb-item" data-dr-anchor="drSectionIntro"><i class="ti ti-info-circle"></i><span>Introduction</span></button>
+      <button class="sb-item" data-dr-anchor="drSectionMethod"><i class="ti ti-calculator"></i><span>Methodology</span></button>
+      <button class="sb-item" data-dr-anchor="drSectionResults"><i class="ti ti-chart-bar"></i><span>THI Result</span></button>
+    </nav>
+    <div class="sb-footer">
+      <div class="sb-footer-label">Developed by</div>
+      <div class="sb-footer-name">People &amp; Culture Team</div>
+    </div>
+  </aside>
+  <div class="dr-content-wrap">
+  <div class="dr-hero-banner">
+    <div class="dr-hb-left">
+      <div class="dr-hb-icon-badge">
+        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="15" cy="15" r="12.5" stroke="#FCA311" stroke-width="2.4"/>
+          <circle cx="10.5" cy="12.5" r="1.4" fill="#FCA311"/>
+          <circle cx="19.5" cy="12.5" r="1.4" fill="#FCA311"/>
+          <path d="M9.5 16.5c1.4 2 3.3 3 5.5 3s4.1-1 5.5-3" stroke="#FCA311" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M21 5.5c-1.7 0-3 1.3-3 3 0 2 3 4 3 4s3-2 3-4c0-1.7-1.3-3-3-3z" fill="#EF4444"/>
+        </svg>
+      </div>
+      <div>
+        <div class="dr-hb-title">Timmy Happiness Index</div>
+        <div class="dr-hb-sub">Measuring happiness &amp; engagement of Timmys,<br>one quarter at a time.</div>
+      </div>
+    </div>
+    <div class="dr-hb-divider"></div>
+    <div class="dr-hb-dept">
+      <div class="dr-hb-dept-icon"><i class="ti ti-users"></i></div>
+      <div>
+        <div class="dr-hb-dept-label">Department</div>
+        <div class="dr-hb-dept-name" id="drHeroDeptName">—</div>
+        <div class="dr-hb-dept-badge">Department Dashboard</div>
+      </div>
+    </div>
+    <div class="dr-hb-illustration">
+      <div class="hb-orb-field" aria-hidden="true">
+        <div class="hb-orb hb-orb-1"></div>
+        <div class="hb-orb hb-orb-2"></div>
+        <div class="hb-orb hb-orb-3"></div>
+        <div class="hb-orb hb-orb-4"></div>
+        <div class="hb-orb hb-orb-5"></div>
+        <svg class="hb-orb-ring" width="100%" height="100%" viewBox="0 0 480 200" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+          <circle class="hb-ring hb-ring-1" cx="330" cy="95" r="62" stroke="#e9d8fd" stroke-width="1.4" stroke-dasharray="4 8" opacity=".55"/>
+          <circle class="hb-ring hb-ring-2" cx="150" cy="70" r="40" stroke="#c4b5fd" stroke-width="1.2" stroke-dasharray="3 7" opacity=".45"/>
+          <circle class="hb-spark" cx="60" cy="40" r="2.4" fill="#e9d8fd"/>
+          <circle class="hb-spark hb-spark-d1" cx="420" cy="150" r="2" fill="#c4b5fd"/>
+          <circle class="hb-spark hb-spark-d2" cx="250" cy="30" r="1.8" fill="#fff"/>
+          <circle class="hb-spark hb-spark-d3" cx="440" cy="45" r="2.2" fill="#e9d8fd"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <header class="dr-topbar">
+    <div class="dr-topbar-left">
+      <div class="sb-brand-icon" style="background:var(--gold)"><i class="ti ti-building-community"></i></div>
+      <div>
+        <div class="dr-title">Timmy Happiness Index</div>
+        <div class="dr-sub" id="drDeptName">—</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div class="filter-chip">
+        <i class="ti ti-calendar-event"></i>
+        <select id="drFilterQuarter" class="chip-select"></select>
+      </div>
+      <div class="filter-chip">
+        <i class="ti ti-chart-donut"></i>
+        <select id="drFilterMethod" class="chip-select">
+          <option value="avg">Average per 7</option>
+          <option value="fav567">Population 5,6,7</option>
+          <option value="fav67">Population 6,7</option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <i class="ti ti-map-pin"></i>
+        <select id="drFilterCity" class="chip-select"><option value="all">All Locations</option></select>
+      </div>
+      <div class="filter-chip decimals-chip">
+        <span>Decimals</span>
+        <div class="toggle" id="drDecimalsToggle"><div class="toggle-thumb"></div></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="dr-main">
+
+    <!-- ══ A. INTRODUCTION — survey structure reference ══ -->
+    <div class="dr-section-wrap">
+    <div class="dr-section-connector"></div>
+    <div class="card dr-intro-card dr-section-fade" id="drSectionIntro" style="margin-bottom:14px">
+      <button class="dr-intro-toggle dr-section-header-btn dr-section-header-purple" id="drIntroToggle" type="button">
+        <div style="display:flex;align-items:center;gap:0;position:relative;z-index:1">
+          <div class="dr-section-badge-wrap">
+            <div class="dr-section-badge-ring"></div>
+            <div class="dr-section-badge"><i class="ti ti-info-circle"></i></div>
+            <div class="dr-section-badge-dot"></div>
+          </div>
+          <div class="dr-section-header-text">
+            <div class="dr-section-title">Introduction</div>
+            <div class="dr-section-sub">What the THI survey covers, and how it's structured</div>
+          </div>
+        </div>
+        <i class="ti ti-chevron-down dr-section-chevron" id="drIntroChevron"></i>
+      </button>
+      <div class="dr-intro-body" id="drIntroBody" style="display:none">
+        <p>Timmy Happiness Index survey is IDN's self administered Engagement Survey for all Timmy in IDN. The survey assess 11 areas with 44 questions/items.</p>
+        <p>In 2025, some changes have been made to the Creative Lab area, including renaming it to Workplace Support and refining the questions for better clarity. This adjustment aims to better assess how IDN provides the necessary support to enhance both productivity and well-being for Timmys in the workplace.</p>
+
+        <div class="dr-intro-grid">
+          <div class="dr-intro-col">
+            <div class="dr-intro-col-title">Area &amp; Questions</div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">1 · Vision &amp; Values</div>
+              <div class="dr-intro-q-list">
+                <div>1. I believe in the vision and value of IDN</div>
+                <div>2. I believe that my work brings positive impacts on the organization</div>
+                <div>3. I believe that IDN brings positive impacts on the society</div>
+                <div>4. I believe that IDN has an impactful vision and values</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">2 · Leadership</div>
+              <div class="dr-intro-q-list">
+                <div>5. I believe in the top management team (BOD and Head) to grow IDN</div>
+                <div>6. My direct supervisor set the right examples and demands from myself to give the best to the organization</div>
+                <div>7. Top management team (BOD and Head) create an environment where everyone feel valued, trusted, and respected.</div>
+                <div>8. I believe that my leader (direct supervisor) has the capability to reach the team's OKR</div>
+                <div>9. I have shown leadership characteristics in my role and in my team</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">3 · Teamwork</div>
+              <div class="dr-intro-q-list">
+                <div>10. I am part of a psychologically-safe team</div>
+                <div>11. I am part of an effective and productive team, which is working together to achieve the team's OKR</div>
+                <div>12. I believe I am a good team player and put the team's interests above my own interests</div>
+                <div>13. I believe Timmy in IDN has good teamwork both with their own team and / or with other teams</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">4 · Communication</div>
+              <div class="dr-intro-q-list">
+                <div>14. I feel that my teammates and I are able to communicate effectively and respectfully with each other</div>
+                <div>15. I believe that I am able to communicate effectively with other Timmy's well (even with the leaders)</div>
+                <div>16. I receive sufficient information on matters that affects me (i.e. OKR, company policies and procedures, company values)</div>
+                <div>17. I feel that I regularly receive feedback from my direct supervisor</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">5 · Culture</div>
+              <div class="dr-intro-q-list">
+                <div>18. I believe in IDN Culture (Integrity, Growth, Inclusive).</div>
+                <div>19. The culture of IDN makes me feel accepted, valued, and respected.</div>
+                <div>20. I demonstrate Timmyness consistently in my day-to-day work.</div>
+                <div>21. I like the passion, energy, positivity, and enthusiasm that Timmy's in IDN have.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dr-intro-col">
+            <div class="dr-intro-col-title">Area &amp; Questions</div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">6 · Personal Development</div>
+              <div class="dr-intro-q-list">
+                <div>22. I believe that I have a growth mindset (a belief that talents can be developed through hard work, problems/challenges, and input from others).</div>
+                <div>23. My current role in IDN makes me learn new things and grow to become a better person.</div>
+                <div>24. IDN provides me with development opportunity that helps me grow as an individual</div>
+                <div>25. I believe IDN provide me with learning opportunities and helps to me grow</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">7 · Accountability &amp; Performance</div>
+              <div class="dr-intro-q-list">
+                <div>26. I have a clear understanding of what my responsibilities (including OKR) are</div>
+                <div>27. I know how to achieve my OKR</div>
+                <div>28. I feel that my team leader (direct supervisor) trusts me to make decisions related to my works</div>
+                <div>29. I believe that I am taking full responsibility and ownership of my work</div>
+                <div>30. I believe that IDN keeps me accountable and responsible for my work</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">8 · Recognition</div>
+              <div class="dr-intro-q-list">
+                <div>31. In general, I feel that IDN appreciates my work and contributions.</div>
+                <div>32. I feel that my leaders (direct supervisor) recognizes my work and contribution.</div>
+                <div>33. I feel recognized and appreciated by other Timmy for my contributions.</div>
+                <div>34. I feel that IDN supports and takes care of my wellbeing.</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">9 · Workplace Support</div>
+              <div class="dr-intro-q-list">
+                <div>35. I feel that the facilities and resources at the workplace effectively support my work</div>
+                <div>36. I feel that the workplace environment and available facilities contribute positively to my overall well-being.</div>
+                <div>37. I feel that the IDN office is comfortable.</div>
+              </div>
+            </div>
+
+            <div class="dr-intro-area-block">
+              <div class="dr-intro-area-name">10 · Integrity</div>
+              <div class="dr-intro-q-list">
+                <div>38. I believe that I have displayed a high level of integrity during my time in IDN</div>
+                <div>39. I believe that my team leader (direct supervisor) has displayed a high level of integrity during my time in IDN</div>
+                <div>40. I believe that my team has displayed a high level of integrity during my time in IDN</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dr-intro-col">
+            <div class="dr-intro-col-title">Timmy Experience</div>
+            <div class="dr-intro-q-list dr-intro-q-list-flat">
+              <div>41. Overall, I am happy working at IDN</div>
+              <div>42. Overall, I am grateful working at IDN</div>
+              <div>43. Overall, I am proud working at IDN</div>
+            </div>
+
+            <div class="dr-intro-col-title" style="margin-top:16px">NPS Question</div>
+            <div class="dr-intro-q-list dr-intro-q-list-flat">
+              <div>44. How likely are you to recommend IDN as a place to work?</div>
+            </div>
+
+            <div class="dr-intro-col-title" style="margin-top:16px">Open Ended Question</div>
+            <div class="dr-intro-q-list dr-intro-q-list-flat">
+              <div>45. What are the top 3 things that we have done well as an organization?</div>
+              <div>46. What are the top 3 things that we can improve as an organization?</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ B. CALCULATION METHODOLOGY ══ -->
+    <div class="dr-section-wrap">
+    <div class="dr-section-connector"></div>
+    <div class="card dr-intro-card dr-section-fade" id="drSectionMethod" style="margin-bottom:14px">
+      <button class="dr-intro-toggle dr-section-header-btn dr-section-header-gold" id="drMethodToggle" type="button">
+        <div style="display:flex;align-items:center;gap:0;position:relative;z-index:1">
+          <div class="dr-section-badge-wrap">
+            <div class="dr-section-badge-ring"></div>
+            <div class="dr-section-badge"><i class="ti ti-calculator"></i></div>
+            <div class="dr-section-badge-dot"></div>
+          </div>
+          <div class="dr-section-header-text">
+            <div class="dr-section-title">Calculation Methodology</div>
+            <div class="dr-section-sub">How Average Score and Population Distribution are calculated</div>
+          </div>
+        </div>
+        <i class="ti ti-chevron-down dr-section-chevron" id="drMethodChevron"></i>
+      </button>
+      <div class="dr-intro-body" id="drMethodBody" style="display:none">
+
+        <div class="dr-method-sub">
+          <div class="dr-method-sub-title">A. Average Score</div>
+          <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start">
+            <div style="flex:0 0 250px">
+              <div class="dr-method-formula">THI Score = Average Score / 7</div>
+              <p style="font-size:.72rem;color:var(--text2);line-height:1.55;margin:0">Among 100 Timmy responded to the survey on this particular item, the score will be average of actual score (1,2 …7) divided by target score (7).</p>
+            </div>
+            <div style="flex:1;min-width:560px;overflow-x:auto">
+              <table class="dr-method-table">
+                <thead><tr><th>Simulation</th><th>Item 1</th><th>Item 2</th><th>Item 3</th><th>Item 4</th><th>Item 5</th><th>Item 6</th><th>Item 7</th><th>Item 8</th><th>Item 9</th><th>Item 10</th><th>Item 11</th><th>Item 12</th><th>Average Score</th></tr></thead>
+                <tbody>
+                  <tr><td>Timmy N1</td><td>5</td><td>5</td><td>4</td><td>5</td><td>6</td><td>7</td><td>3</td><td>5</td><td>5</td><td>5</td><td>4</td><td>5</td><td rowspan="2" class="dr-method-result">70%</td></tr>
+                  <tr><td>Timmy N2</td><td>4</td><td>5</td><td>5</td><td>5</td><td>5</td><td>4</td><td>5</td><td>5</td><td>5</td><td>5</td><td>5</td><td>5</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="dr-method-sub">
+          <div class="dr-method-sub-title">B. Population Distribution Method</div>
+          <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start">
+            <div style="flex:0 0 250px">
+              <p style="font-size:.72rem;color:var(--text2);line-height:1.55;margin:0 0 12px">The score refers to % population who given rating 5, 6 and 7.</p>
+              <table class="dr-method-legend">
+                <tr>
+                  <td style="background:#ef4444;color:#fff">1</td><td style="background:#ef4444;color:#fff">2</td><td style="background:#f1a9a3;color:#5c1f1f">3</td>
+                  <td style="background:#fbd97a;color:#5c4300">4</td>
+                  <td style="background:#bfe3bc;color:#1e4a1e">5</td><td style="background:#4a934a;color:#fff">6</td><td style="background:#4a934a;color:#fff">7</td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="background:#f3d3d1;color:#7a2b2b">Not Favorable</td>
+                  <td style="background:#fdf0cd;color:#7a5c00">Neutral</td>
+                  <td colspan="3" style="background:#dbeedc;color:#1e4a1e">Favorable</td>
+                </tr>
+              </table>
+              <div style="display:flex;justify-content:space-between;font-size:.66rem;font-weight:700;color:var(--text2);margin-top:6px">
+                <span>Strongly Disagree</span><span>Strongly Agree</span>
+              </div>
+            </div>
+            <div style="flex:1;min-width:460px;overflow-x:auto">
+              <table class="dr-method-table">
+                <thead><tr>
+                  <th>Simulation</th>
+                  <th style="background:#ef4444;color:#fff">1</th><th style="background:#ef4444;color:#fff">2</th><th style="background:#f1a9a3;color:#5c1f1f">3</th>
+                  <th style="background:#fbd97a;color:#5c4300">4</th>
+                  <th style="background:#bfe3bc;color:#1e4a1e">5</th><th style="background:#4a934a;color:#fff">6</th><th style="background:#4a934a;color:#fff">7</th>
+                  <th>THI Score</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td># Timmy</td><td>2</td><td>3</td><td>5</td><td>10</td><td>20</td><td>40</td><td>20</td><td rowspan="2" class="dr-method-result">80%</td></tr>
+                  <tr><td>% Timmy</td><td>2%</td><td>3%</td><td>5%</td><td>10%</td><td class="dr-method-highlight">20%</td><td class="dr-method-highlight">40%</td><td class="dr-method-highlight">20%</td></tr>
+                </tbody>
+              </table>
+              <div style="text-align:center;font-size:.66rem;color:var(--text3);margin-top:6px">Ensuring vast majority of Timmy's population are in here</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    </div>
+
+    <!-- ══ C. THI RESULTS ══ -->
+    <div class="dr-section-wrap dr-section-wrap-last">
+    <div class="dr-section-connector"></div>
+    <div class="card dr-intro-card dr-section-fade" id="drSectionResults" style="margin-bottom:14px">
+      <div class="dr-section-header-static dr-section-header-blue">
+        <div style="display:flex;align-items:center;gap:0;position:relative;z-index:1">
+          <div class="dr-section-badge-wrap">
+            <div class="dr-section-badge-ring"></div>
+            <div class="dr-section-badge"><i class="ti ti-chart-bar"></i></div>
+            <div class="dr-section-badge-dot"></div>
+          </div>
+          <div class="dr-section-header-text">
+            <div class="dr-section-title">THI Results</div>
+            <div class="dr-section-sub">This department's live scores, breakdowns, and comparisons</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dr-c-row">
+        <div class="dr-metric-card dr-c-part-card" style="background:#FCA31118">
+          <div class="dr-metric-icon" style="background:#FCA31122;color:#c97a00"><i class="ti ti-users"></i></div>
+          <div class="dr-metric-body">
+            <div class="dr-metric-label">Participation Rate</div>
+            <div class="dr-metric-val"><span id="drCPartRate">—</span><span class="dr-metric-delta" id="drCPartDelta"></span></div>
+            <div class="dr-metric-sub" id="drCPartFooter"></div>
+          </div>
+        </div>
+
+        <div class="dr-metric-card2">
+          <div class="dr-metric2-bar" style="background:#1d4ed8">THI Score</div>
+          <div class="dr-metric2-body">
+            <div class="dr-metric2-icon" style="background:#2a78d618;color:#1d4ed8"><i class="ti ti-mood-smile"></i></div>
+            <div class="dr-metric2-val" style="color:#1d4ed8"><span id="drCThiScore">—</span></div>
+            <span class="dr-metric-delta" id="drCThiScoreDelta"></span>
+          </div>
+          <div class="dr-metric2-row">
+            <span class="dr-metric2-row-label">Target Score</span>
+            <span class="dr-metric2-row-val" id="drCThiTarget">—</span>
+          </div>
+          <div class="dr-metric2-row dr-metric2-row-highlight" style="background:#1d4ed814">
+            <span class="dr-metric2-row-label dr-metric2-row-label-strong">OKR Achievement</span>
+            <span class="dr-metric2-row-val dr-metric2-row-val-big" style="color:#1d4ed8"><span id="drCThiAchieve">—</span><span id="drCThiDelta"></span></span>
+          </div>
+        </div>
+
+        <div class="dr-c-donut-card dr-c-nps-card">
+          <div style="display:flex;gap:18px;align-items:stretch;flex-wrap:wrap;flex:1">
+            <div class="dr-metric-card2 dr-c-nps-achieve-card">
+              <div class="dr-metric2-bar" style="background:#6d28d9">NPS Score</div>
+              <div class="dr-metric2-body">
+                <div class="dr-metric2-icon" style="background:#8B5CF618;color:#6d28d9"><i class="ti ti-heart"></i></div>
+                <div class="dr-metric2-val" style="color:#6d28d9"><span id="drCNpsScore">—</span></div>
+                <span class="dr-metric-delta" id="drCNpsScoreDelta"></span>
+              </div>
+              <div class="dr-metric2-row">
+                <span class="dr-metric2-row-label">Target Score</span>
+                <span class="dr-metric2-row-val" id="drCNpsTarget">—</span>
+              </div>
+              <div class="dr-metric2-row dr-metric2-row-highlight" style="background:#6d28d914">
+                <span class="dr-metric2-row-label dr-metric2-row-label-strong">OKR Achievement</span>
+                <span class="dr-metric2-row-val dr-metric2-row-val-big" style="color:#6d28d9"><span id="drCNpsAchieve">—</span><span id="drCNpsDelta"></span></span>
+              </div>
+            </div>
+            <div class="dr-c-nps-explain">
+              <div class="dr-c-nps-q">44. How likely are you to recommend IDN as a place to work?</div>
+              <div class="dr-c-nps-face-row">
+                <i class="ti ti-mood-sad-2 dr-c-nps-face" style="color:#ef4444"></i>
+                <i class="ti ti-mood-neutral dr-c-nps-face" style="color:#d99900"></i>
+                <i class="ti ti-mood-smile dr-c-nps-face" style="color:#16a34a"></i>
+              </div>
+              <div class="dr-c-nps-band-row">
+                <div class="dr-c-nps-band" style="background:#ef4444;color:#fff">1</div>
+                <div class="dr-c-nps-band" style="background:#ef4444;color:#fff">2</div>
+                <div class="dr-c-nps-band" style="background:#fde68a;color:#7a5c00">3</div>
+                <div class="dr-c-nps-band" style="background:#fde68a;color:#7a5c00">4</div>
+                <div class="dr-c-nps-band" style="background:#fde68a;color:#7a5c00">5</div>
+                <div class="dr-c-nps-band" style="background:#4a934a;color:#fff">6</div>
+                <div class="dr-c-nps-band" style="background:#4a934a;color:#fff">7</div>
+              </div>
+              <div class="dr-c-nps-brace-row">
+                <div class="dr-c-nps-brace-group" style="flex:2"><div class="dr-c-nps-brace" style="border-color:#ef4444"></div><div class="dr-c-nps-label" tabindex="0" data-tip="# Timmy who respond 1 and 2 will be categorized as &quot;Detractors&quot;">Detractors <i class="ti ti-help-circle dr-c-nps-help"></i></div></div>
+                <div class="dr-c-nps-brace-group" style="flex:3"><div class="dr-c-nps-brace" style="border-color:#d99900"></div><div class="dr-c-nps-label" tabindex="0" data-tip="# Timmy who respond 3, 4, and 5 will be categorized as &quot;Passive&quot;">Passive <i class="ti ti-help-circle dr-c-nps-help"></i></div></div>
+                <div class="dr-c-nps-brace-group" style="flex:2"><div class="dr-c-nps-brace" style="border-color:#16a34a"></div><div class="dr-c-nps-label" tabindex="0" data-tip="# Timmy who respond 6 and 7 will be categorized as &quot;Promoters&quot;">Promoters <i class="ti ti-help-circle dr-c-nps-help"></i></div></div>
+              </div>
+              <div class="dr-c-nps-formula">NPS = % Promoters − % Detractors</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dr-c-itemsrow">
+        <div class="dr-c-items-block">
+          <div class="dr-c-items-header-row">
+            <div class="dr-c-items-title dr-c-items-title-top"><span class="dr-c-title-icon" style="background:#16a34a22;color:#16a34a"><i class="ti ti-trending-up"></i></span> TOP 3 ITEMS</div>
+            <div class="dr-c-items-title dr-c-items-title-bot"><span class="dr-c-title-icon" style="background:#dc262622;color:#dc2626"><i class="ti ti-trending-down"></i></span> BOTTOM 3 ITEMS</div>
+          </div>
+          <div class="dr-c-items-grid" id="drCItemsGrid"></div>
+        </div>
+        <div class="dr-c-areas-col">
+          <div class="dr-c-areas-title"><span class="dr-c-title-icon" style="background:#16a34a22;color:#16a34a"><i class="ti ti-trending-up"></i></span> TOP 3 AREAS</div>
+          <div class="dr-c-areas-list" id="drCTopAreas"></div>
+          <div class="dr-c-areas-title" style="margin-top:16px"><span class="dr-c-title-icon" style="background:#dc262622;color:#dc2626"><i class="ti ti-trending-down"></i></span> BOTTOM 3 AREAS</div>
+          <div class="dr-c-areas-list dr-c-areas-list-fill" id="drCBotAreas"></div>
+        </div>
+      </div>
+
+      <!-- Comparative Analysis (reuses the same pair data as the Comparison tab) -->
+      <div class="dr-c-cmp-wrap">
+        <div class="dr-c-cmp-titlebar">
+          <div class="dr-c-cmp-arc dr-c-cmp-arc-1"></div>
+          <div class="dr-c-cmp-arc dr-c-cmp-arc-2"></div>
+          <div class="dr-c-cmp-titlebar-text">Comparative Analysis</div>
+          <div class="dr-c-cmp-titlebar-line-row">
+            <span class="dr-c-cmp-titlebar-line"></span>
+            <span class="dr-c-cmp-titlebar-dot"></span>
+            <span class="dr-c-cmp-titlebar-line"></span>
+          </div>
+        </div>
+
+        <div class="dr-c-cmp-section">
+          <div class="dr-c-cmp-left">
+            <div class="dr-c-cmp-h">1. Perception (Personal Believe)</div>
+            <p>This analysis compares how Timmy perceive their own contribution versus how they perceive the company's support. The goal is to identify whether we have alignment or gaps between Timmy effort and organizational enablement.</p>
+            <p>3 Key Gaps in our organization are:</p>
+            <div class="dr-c-cmp-gap-title">A. Ownership &amp; Recognition</div>
+            <div class="dr-c-cmp-gap-line">Ownership → "Employees take Responsibility"</div>
+            <div class="dr-c-cmp-gap-line">Recognition → "Company acknowledges contributions"</div>
+            <div class="dr-c-cmp-gap-title">B. Growth Mindset and Development Support</div>
+            <div class="dr-c-cmp-gap-line">Growth mindset → "Employees are willing to learn and improve"</div>
+            <div class="dr-c-cmp-gap-line">Development support → "Company provides learning opportunities"</div>
+            <div class="dr-c-cmp-gap-title">C. Work Ownership &amp; Workplace Support</div>
+            <div class="dr-c-cmp-gap-line">Work ownership → "Employees take responsibility for delivering results"</div>
+            <div class="dr-c-cmp-gap-line">Workplace support → "Tools, environment, facilities enable them"</div>
+          </div>
+          <div class="dr-c-cmp-right" id="drCCmpPerception"></div>
+        </div>
+
+        <div class="dr-c-cmp-section">
+          <div class="dr-c-cmp-left">
+            <div class="dr-c-cmp-h">2. Leadership</div>
+            <p>Leadership is a key stakeholder in shaping and sustaining team culture. As the primary drivers of team performance and employee experience, leaders play a critical role as agents of culture within the organization.</p>
+            <p>This section highlights the alignment between managerial and non-managerial Timmy across key execution areas. The results should be considered as an important reflection of how effectively leadership is translating expectations into day-to-day team experiences.</p>
+            <div class="dr-c-cmp-gap-title">We evaluate three critical areas of execution:</div>
+            <div class="dr-c-cmp-gap-line"><strong>1. How to achieve OKR</strong> (clarity &amp; guidance)</div>
+            <div class="dr-c-cmp-gap-line"><strong>2. Work ownership</strong> (accountability culture)</div>
+            <div class="dr-c-cmp-gap-line"><strong>3. Communication</strong> (information flow &amp; support)</div>
+          </div>
+          <div class="dr-c-cmp-right" id="drCCmpLeadership"></div>
+        </div>
+      </div>
+
+      <!-- Score per Area line chart + Tenure/Level line charts (Average Score) -->
+      <div class="dr-c-charts-row">
+        <div class="dr-c-chart-card dr-c-chart-wide">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="width:32px;height:32px;border-radius:10px;background:#2a78d622;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-chart-line" style="font-size:.95rem;color:#1d4ed8"></i></div>
+            <div class="dr-c-chart-title" style="margin-bottom:0">THI Score per Area</div>
+          </div>
+          <div style="height:290px;position:relative"><canvas id="drCAreaLineChart"></canvas></div>
+          <div class="dr-c-chart-legend dr-c-chart-legend-bottom">
+            <span><i style="background:var(--navy)"></i> Average Score</span>
+            <span><i style="background:#dc2626"></i> Population Distribution</span>
+          </div>
+        </div>
+        <div class="dr-c-chart-stack">
+          <div class="dr-c-chart-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+              <div style="width:32px;height:32px;border-radius:10px;background:#FCA31122;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-clock" style="font-size:.95rem;color:#c97a00"></i></div>
+              <div class="dr-c-chart-title" style="margin-bottom:0">THI Score based on Tenure Population</div>
+            </div>
+            <div style="height:130px;position:relative"><canvas id="drCTenureChart"></canvas></div>
+          </div>
+          <div class="dr-c-chart-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+              <div style="width:32px;height:32px;border-radius:10px;background:#8B5CF622;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-users-group" style="font-size:.95rem;color:#6d28d9"></i></div>
+              <div class="dr-c-chart-title" style="margin-bottom:0">THI Score based on Level Population</div>
+            </div>
+            <div style="height:130px;position:relative" id="drCLevelChartWrap"><canvas id="drCLevelChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Open Questions Feedback -->
+      <div class="dr-c-chart-card" style="margin-top:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="width:32px;height:32px;border-radius:10px;background:#FCA31122;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ti-messages" style="font-size:.95rem;color:#c97a00"></i></div>
+          <div class="dr-c-chart-title" style="margin-bottom:0">Open Questions Feedback</div>
+        </div>
+        <div class="dr-c-openq-row">
+          <div class="dr-c-openq-chart">
+            <div id="drCOpenQDivergingBars"></div>
+            <div style="display:flex;justify-content:center;gap:14px;margin:12px 0 0;font-size:.7rem;color:var(--text3)">
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#ef4444"></span>Need Improvement</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#16a34a"></span>Did Well</span>
+              <span>· ▲▼ = vs previous quarter, in points</span>
+            </div>
+          </div>
+          <div class="dr-c-openq-text">
+            <div class="dr-c-openq-block">
+              <div class="dr-c-openq-block-title dr-c-openq-good">What we did well</div>
+              <ul id="drCOpenQGood" class="dr-c-openq-list"></ul>
+            </div>
+            <div class="dr-c-openq-block">
+              <div class="dr-c-openq-block-title dr-c-openq-bad">What we need to improve</div>
+              <ul id="drCOpenQBad" class="dr-c-openq-list"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <footer class="page-footer">Data as of <span id="drFooterDate">—</span> · People &amp; Culture Team · IDN</footer>
+  </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SPECIAL ROLE REPORT — Office Management / Culture & Learning, etc.
+     Full-access (all depts), but its own per-area report layout instead
+     of the regular admin dashboard or the single-department report.
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="specialRoleWrap" style="display:none">
+  <aside class="sidebar" id="srSidebar">
+    <div class="sb-brand">
+      <div class="sb-brand-icon"><i class="ti ti-building-community"></i></div>
+      <div><div class="sb-brand-name" id="srBrandName">Special Access</div><div class="sb-brand-sub">People &amp; Culture</div></div>
+    </div>
+    <nav class="sb-nav" id="srSidebarNav">
+      <div class="sb-nav-label">AREAS</div>
+    </nav>
+    <div class="sb-footer">
+      <div class="sb-footer-label">Developed by</div>
+      <div class="sb-footer-name">People &amp; Culture Team</div>
+    </div>
+  </aside>
+  <div class="dr-content-wrap">
+  <header class="dr-topbar">
+    <div class="dr-topbar-left">
+      <div class="sb-brand-icon" style="background:var(--gold)"><i class="ti ti-building-community"></i></div>
+      <div>
+        <div class="dr-title">Timmy Happiness Index</div>
+        <div class="dr-sub" id="srRoleName">—</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div class="filter-chip">
+        <i class="ti ti-calendar-event"></i>
+        <select id="srFilterQuarter" class="chip-select"></select>
+      </div>
+      <div class="filter-chip">
+        <i class="ti ti-chart-donut"></i>
+        <select id="srFilterMethod" class="chip-select">
+          <option value="avg">Average per 7</option>
+          <option value="fav567">Population 5,6,7</option>
+          <option value="fav67">Population 6,7</option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <i class="ti ti-map-pin"></i>
+        <select id="srFilterCity" class="chip-select"><option value="all">All Locations</option></select>
+      </div>
+      <div class="filter-chip decimals-chip">
+        <span>Decimals</span>
+        <div class="toggle" id="srDecimalsToggle"><div class="toggle-thumb"></div></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="dr-main" id="srMain">
+    <!-- Filled per-area by renderSpecialRoleReport() in script.js -->
+  </main>
+  </div>
+</div>
+
+<!-- ── AMBIENT SOUND WIDGET ── -->
+<button class="ambient-btn" id="ambientBtn" aria-label="Toggle ambient sound">
+  <div class="ambient-icon-wrap"><i class="ti ti-disc" id="ambientIcon"></i></div>
+  <div class="ambient-text">
+    <div class="ambient-title">Ambient sound</div>
+    <div class="ambient-sub" id="ambientSub">Click to play</div>
+  </div>
+</button>
+<div id="ambientPlayerHost" style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none"></div>
+
+<script src="data-loader.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
