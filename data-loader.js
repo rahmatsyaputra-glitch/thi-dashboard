@@ -628,7 +628,23 @@ async function loadConfig() {
     const map = {};
     (data.config || []).forEach(row => { map[row.quarter] = row; });
     THI.config = map;
+    // The Config sheet's survey_start/survey_end columns are the real source of
+    // truth for the Participation "Daily Progress" chart's date range — mirror
+    // them into SURVEY_DURATION (previously a separate hardcoded object) so a
+    // new quarter's dates just need to be filled into the sheet, not redeployed
+    // in code. Only overwrite when the sheet actually has a value, so a quarter
+    // with no survey_start/survey_end yet keeps falling back to whatever (if
+    // anything) was hardcoded for it.
+    Object.keys(map).forEach(label => {
+      const row = map[label];
+      if (!row.surveyStart && !row.surveyEnd) return;
+      SURVEY_DURATION[label] = {
+        start: row.surveyStart || SURVEY_DURATION[label]?.start || null,
+        end:   row.surveyEnd   || SURVEY_DURATION[label]?.end   || null,
+      };
+    });
     console.log(`Loaded Config: ${Object.keys(map).join(', ')}`);
+    console.log(`SURVEY_DURATION after merge: ${JSON.stringify(SURVEY_DURATION)}`);
   } catch (e) {
     console.error('Failed to load Config sheet:', e);
     THI.config = {};

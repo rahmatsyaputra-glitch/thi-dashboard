@@ -971,7 +971,7 @@ function renderOverview(resp){
   // KPI CARDS
   const q=THI.quarters[THI.activeQuarter];const pop=q?.population;
   let partLabel='Responses',partVal=`${resp.length.toLocaleString()}`,partSub='Total respondents this quarter',partBar=100;
-  if(pop){let popN=pop.total,respN=resp.length;if(STATE.dept==='Marketing (Combined)'&&pop.byDeptGroup?.Marketing)popN=pop.byDeptGroup.Marketing;else if(STATE.dept!=='all'&&pop.byDept[STATE.dept])popN=pop.byDept[STATE.dept];else if(STATE.tenure!=='all'&&pop.byTenure[STATE.tenure])popN=pop.byTenure[STATE.tenure];const rate=respN/popN*100;partLabel='Participation Rate';partVal=`${dp(rate)}%`;partSub=`${respN.toLocaleString()} of ${popN.toLocaleString()} Timmys`;partBar=Math.min(rate,100)}
+  if(pop){let popN=getEffectivePopulationTotal(q),respN=resp.length;if(STATE.dept==='Marketing (Combined)'&&pop.byDeptGroup?.Marketing)popN=pop.byDeptGroup.Marketing;else if(STATE.dept!=='all'&&pop.byDept[STATE.dept])popN=pop.byDept[STATE.dept];else if(STATE.tenure!=='all'&&pop.byTenure[STATE.tenure])popN=pop.byTenure[STATE.tenure];const rate=respN/popN*100;partLabel='Participation Rate';partVal=`${dp(rate)}%`;partSub=`${respN.toLocaleString()} of ${popN.toLocaleString()} Timmys`;partBar=Math.min(rate,100)}
   document.getElementById('kpiRow').innerHTML=`
     <div class="kpi-card green">
       <div class="kpi-bg-icon"><i class="ti ti-users"></i></div>
@@ -1156,7 +1156,7 @@ function renderOverview(resp){
   if(jumboS) jumboS.textContent = `${dp(score)}%`;
   if(jumboR) jumboR.textContent = resp.length.toLocaleString();
   if(jumboRt){
-    const pop2 = THI.quarters[THI.activeQuarter]?.population?.total||resp.length;
+    const pop2 = getEffectivePopulationTotal(THI.quarters[THI.activeQuarter]);
     jumboRt.textContent = `${dp(resp.length/pop2*100)}%`;
   }
   const smt2=sentiment(score);
@@ -1769,18 +1769,42 @@ function renderTrend(){
 }
 
 // ── PARTICIPATION TAB ─────────────────────────────────────────────
+// A quarter's population total can need certain departments excluded from the
+// Participation Rate denominator for that quarter only (e.g. Boss Creator was
+// eligible but shouldn't count toward Quarter 3's headcount). This list comes
+// from the Config sheet's "exclude_depts" column (comma-separated dept names
+// per quarter) — see THI.config in data-loader.js — so adding a new quarter's
+// exclusions is just a sheet edit, no code change or redeploy needed.
+// This only ever affects Participation Rate: THI Score/NPS/Heatmap are
+// computed purely from actual respondent answers, never from headcount, so an
+// excluded dept's zero responses were already having zero effect on those.
+// The per-department breakdown table is unaffected too — an excluded dept's
+// own row still shows its real % there, which is correct and separate from this.
+// EVERY place in this file that turns a quarter's population into a rate must
+// go through this one function — several used to read qObj.population.total
+// directly (Overview KPI card, jumbotron, both Daily Progress chart loops),
+// silently bypassing any exclusion and causing exactly the "number didn't
+// change" symptom this was built to fix.
+function getEffectivePopulationTotal(qObj){
+  const rawTotal = qObj?.population?.total || qObj?.respondents?.length || 0;
+  const excludeDepts = THI.config?.[qObj?.label]?.excludeDepts;
+  if(!excludeDepts?.length || !qObj?.population?.byDept) return rawTotal;
+  const excluded = excludeDepts.reduce((sum,d)=>sum+(qObj.population.byDept[d]||0), 0);
+  return Math.max(0, rawTotal-excluded);
+}
+
 function renderParticipation(){
   const q   = THI.quarters[THI.activeQuarter];
   const pop = q?.population;
   const allR= q?.respondents||[];
   const responded  = allR.length;
-  const population = pop?.total || responded;
+  const population = getEffectivePopulationTotal(q);
   const notResp    = Math.max(0, population - responded);
   const rate       = population ? (responded/population*100) : 0;
 
   // Prev quarter data
   const pq  = THI.activeQuarter>0 ? THI.quarters[THI.activeQuarter-1] : null;
-  const pPop= pq?.population?.total || pq?.respondents?.length || null;
+  const pPop= pq ? getEffectivePopulationTotal(pq) : null;
   const pRes= pq?.respondents?.length || null;
   const pRate= (pPop&&pRes) ? pRes/pPop*100 : null;
   const pNotResp = (pPop&&pRes) ? Math.max(0,pPop-pRes) : null;
@@ -1836,7 +1860,7 @@ function renderParticipation(){
     const startDate = new Date(conf.start);
     const endDate   = new Date(conf.end);
     const totalDays = Math.min(Math.round((endDate-startDate)/(1000*60*60*24))+1, MAX_DAYS);
-    const pop2      = qObj.population?.total || qObj.respondents.length;
+    const pop2      = getEffectivePopulationTotal(qObj);
 
     // Count per day from timestamp
     const dayCounts = Array(totalDays).fill(0);
@@ -1957,7 +1981,7 @@ function renderParticipation(){
   }).join('');
 
 
-  const maxPop = Math.max(...THI.quarters.map(q=>q.population?.total||q.respondents?.length||0), 1);
+  const maxPop = Math.max(...THI.quarters.map(q=>getEffectivePopulationTotal(q)), 1);
   const CHART_H = 110; // px max bar height
 
   const getDurDays = (label) => {
@@ -1977,7 +2001,7 @@ function renderParticipation(){
         <div class="pvb-info nodata">No data yet</div>
       </div>`;
     }
-    const pop2 = q.population?.total||q.respondents.length;
+    const pop2 = getEffectivePopulationTotal(q);
     const res2 = q.respondents.length;
     const notR = Math.max(0, pop2-res2);
     const rt   = +(res2/pop2*100).toFixed(1);
@@ -2053,10 +2077,27 @@ function renderParticipation(){
 
   // Data getters per table type
   const getDeptData = (q, resp) => {
-    const rawKeys = [...new Set(resp.map(r=>r.dept))];
+    // Row list comes from the population roster (byDept), not from who actually
+    // responded — a dept that's eligible but got zero respondents this quarter
+    // (e.g. Boss Creator in Quarter 3) must still get a row showing 0%, not
+    // disappear from the table entirely. Union across every loaded quarter's
+    // roster so a dept only present in another quarter's population still shows
+    // up (as "—") everywhere, keeping the row set identical across columns.
+    const popKeys = new Set();
+    THI.quarters.forEach(qq=>{ if(qq?.population?.byDept) Object.keys(qq.population.byDept).forEach(d=>popKeys.add(d)); });
+    // Safety net: also include any dept name seen only in respondent data, in
+    // case a quarter's roster sheet is missing/incomplete for that dept.
+    THI.quarters.forEach(qq=>{ (qq?.respondents||[]).forEach(r=>{ if(r.dept) popKeys.add(r.dept); }); });
+    // These never get their own row: "Audience Development"/"Communications" are
+    // legacy pre-merge names whose data already rolls up into "Marketing" via
+    // deptGroup below, and "Special Projects" is a stray duplicate of "Special
+    // Project" that shouldn't exist as a separate department at all.
+    const HIDDEN_DEPT_ROWS = new Set(['Audience Development','Communications','Special Projects']);
+    HIDDEN_DEPT_ROWS.forEach(d=>popKeys.delete(d));
+    const rawKeys = [...popKeys];
     // Always surface a "Marketing" row, even in quarters where the raw dept name was
     // still "Audience Development"/"Communications" — computed as the combined group total.
-    const hasMarketingGroup = resp.some(r=>r.deptGroup==='Marketing');
+    const hasMarketingGroup = THI.quarters.some(qq=>(qq?.respondents||[]).some(r=>r.deptGroup==='Marketing')) || popKeys.has('Marketing');
     const keys = [...new Set([...rawKeys, ...(hasMarketingGroup?['Marketing']:[])])].sort();
     return keys.map(d=>{
       const isMarketing = d==='Marketing';
