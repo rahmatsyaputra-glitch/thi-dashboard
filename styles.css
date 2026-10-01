@@ -423,8 +423,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex
 .hero-blob{position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none;z-index:0;animation:heroBlobFloat 11s ease-in-out infinite}
 @keyframes heroBlobFloat{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-14px,10px) scale(1.08)}}
 .hero-stat-value.nps-tone{background:linear-gradient(180deg,#fff 0%,#8aa3dd 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.hero-stat-gauge{align-items:center!important;justify-content:space-between;flex-direction:row!important;padding:10px 16px!important;width:190px;box-sizing:border-box;gap:4px}
-.hero-gauge-val{font-size:3.3rem;font-weight:800;color:#2A835F;line-height:1;margin-top:4px}
+.hero-stat-gauge{align-items:center!important;justify-content:space-between;flex-direction:row!important;padding:10px 16px!important;min-width:190px;width:auto;box-sizing:border-box;gap:4px}
+.hero-gauge-val{font-size:3.3rem;font-weight:800;color:#2A835F;line-height:1;margin-top:4px;white-space:nowrap}
 .hero-gauge-ring-wrap{position:relative;width:74px;height:74px;flex-shrink:0}
 .hero-gauge-icon-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .hero-gauge-icon-wrap i{font-size:1.9rem;color:#2A835F}

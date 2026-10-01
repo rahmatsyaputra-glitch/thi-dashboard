@@ -958,7 +958,7 @@ function renderOverview(resp){
   if(od!==null){
     ringDeltaEl.style.display='flex';
     ringDeltaEl.className=`hero-pill-delta ${od>=0?'up':'dn'}`;
-    ringDeltaEl.innerHTML=`<i class="ti ti-arrow-${od>=0?'up':'down'}" style="font-size:.7rem"></i>${Math.round(Math.abs(od))} vs Previous Period`;
+    ringDeltaEl.innerHTML=`<i class="ti ti-arrow-${od>=0?'up':'down'}" style="font-size:.7rem"></i>${dp(Math.abs(od))} vs Previous Period`;
   }else{
     ringDeltaEl.style.display='none';
   }
@@ -1030,7 +1030,7 @@ function renderOverview(resp){
   if(npsD!==null){
     npsScoreDeltaEl.style.display='inline-flex';
     npsScoreDeltaEl.className=`hero-gauge-delta ${npsD>=0?'up':'dn'}`;
-    npsScoreDeltaEl.innerHTML=`<i class="ti ti-arrow-${npsD>=0?'up':'down'}" style="font-size:.65rem"></i>${Math.round(Math.abs(npsD))} vs prev`;
+    npsScoreDeltaEl.innerHTML=`<i class="ti ti-arrow-${npsD>=0?'up':'down'}" style="font-size:.65rem"></i>${dp(Math.abs(npsD))} vs prev`;
   }else{
     npsScoreDeltaEl.style.display='none';
   }
@@ -1125,7 +1125,7 @@ function renderOverview(resp){
   });
 
   const deltaBadge = npsD2!==null
-    ? `<div class="nps-delta-badge ${npsD2>=0?'pos':'neg'}">${npsD2>=0?'▲':'▼'} ${Math.abs(Math.round(npsD2))} vs prev quarter</div>`
+    ? `<div class="nps-delta-badge ${npsD2>=0?'pos':'neg'}">${npsD2>=0?'▲':'▼'} ${dp(Math.abs(npsD2))} vs prev quarter</div>`
     : `<div class="nps-delta-badge neu">No previous quarter</div>`;
 
   document.getElementById('distLegend').innerHTML=`
@@ -1262,7 +1262,7 @@ function renderOverview(resp){
   const top3n=sorted.slice(0,3).map(a=>a.label).join(', ');
   const bot3n=sorted.slice(-3).map(a=>a.label).join(', ');
   let trend='';if(prev){const d=score-prev.total;trend=d>0?`, improving by ${Math.abs(+dp(d))} points`:d<0?`, declining by ${Math.abs(+dp(d))} points`:`, holding steady`}
-  let npsNote=pNPS?` NPS stands at ${Math.round(nps.nps)} (${nps.nps>=pNPS.nps?'▲':'▼'}${Math.abs(Math.round(nps.nps-pNPS.nps))} vs prev).`:` NPS is ${Math.round(nps.nps)} with ${Math.round(nps.promoters)}% promoters.`;
+  let npsNote=pNPS?` NPS stands at ${dp(nps.nps)} (${nps.nps>=pNPS.nps?'▲':'▼'}${dp(Math.abs(nps.nps-pNPS.nps))} vs prev).`:` NPS is ${dp(nps.nps)} with ${dp(nps.promoters)}% promoters.`;
 
   // Extract trending topics from open feedback (q45/q46)
   const allFB = [];
@@ -1740,7 +1740,7 @@ function renderDivergingBars(container, rows){
     if(Math.abs(d)<0.05) return `<span style="font-size:.62rem;color:#94a3b8;font-weight:700">= 0pt</span>`;
     const up=d>0;
     const col=up?'#16a34a':'#dc2626';
-    return `<span style="font-size:.62rem;font-weight:700;color:${col};white-space:nowrap">${up?'▲':'▼'} ${Math.abs(d).toFixed(1)}pt</span>`;
+    return `<span style="font-size:.62rem;font-weight:700;color:${col};white-space:nowrap">${up?'▲':'▼'} ${Math.abs(d).toFixed(STATE.decimals?2:0)}pt</span>`;
   };
   const rowsHtml = rows.map((r,idx)=>{
     const wellW = Math.max(2,Math.round(r.well/maxVal*100));
@@ -2616,12 +2616,17 @@ function renderDeptReport(){
   const prevNps = getPrevNPS();
   const smt = sentiment(currAvg.total);
 
-  const deltaBadge=(curr,prev,decimals=0,suffix='pt')=>{
+  // decimals defaults to following the Decimal toggle (STATE.decimals) rather
+  // than always rounding to a whole number — evaluated fresh on every call
+  // (not baked in at function-definition time), so it still reacts correctly
+  // if the toggle changes after this function was created.
+  const deltaBadge=(curr,prev,decimals=null,suffix='pt')=>{
     if(prev===null||prev===undefined) return `<span class="dr-metric-delta na">No prev quarter</span>`;
+    const dec = decimals===null ? (STATE.decimals?2:0) : decimals;
     const d=curr-prev;
     if(Math.abs(d)<0.05) return `<span class="dr-metric-delta na">= 0${suffix}</span>`;
     const up=d>0;
-    return `<span class="dr-metric-delta ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(d).toFixed(decimals)}${suffix}</span>`;
+    return `<span class="dr-metric-delta ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(d).toFixed(dec)}${suffix}</span>`;
   };
 
   // ── Card 1: Participation Rate ──

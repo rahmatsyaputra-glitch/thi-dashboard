@@ -487,6 +487,61 @@ async function loadQuarterData(quarter) {
 window.loadQuarterData = loadQuarterData;
 
 // ─── PARSE POPULATION ─────────────────────────────────────────────────
+// A department listed in the Config sheet's "exclude_depts" column for this
+// quarter is treated as if it doesn't exist that quarter: its respondents are
+// dropped entirely (even if some of them did respond), and its headcount is
+// removed from the population roster and every aggregate (byDept, byDeptGroup,
+// byTenure, byLevel, total) — rebuilt from the filtered roster so everything
+// stays internally consistent. Matches on either the raw dept name or its
+// group name (so excluding "Marketing" also covers "Audience Development"/
+// "Communications", and excluding one of those two also removes just that
+// person from the Marketing group total, not the whole group).
+function applyDeptExclusions(quarter) {
+  const excludeDepts = THI.config?.[quarter.label]?.excludeDepts;
+  if (!excludeDepts?.length) return;
+  const isExcluded = (dept, deptGroup) => excludeDepts.includes(dept) || (deptGroup && excludeDepts.includes(deptGroup));
+
+  if (quarter.respondents?.length) {
+    const before = quarter.respondents.length;
+    quarter.respondents = quarter.respondents.filter(r => !isExcluded(r.dept, r.deptGroup));
+    const removed = before - quarter.respondents.length;
+    if (removed) console.log(`applyDeptExclusions: removed ${removed} respondent(s) (${excludeDepts.join(', ')}) from ${quarter.label} — excluded department, not just from Participation Rate`);
+  }
+
+  const pop = quarter.population;
+  if (pop) {
+    const keptRoster = (pop.roster || []).filter(e => !isExcluded(e.dept, e.deptGroup));
+    const removedRoster = (pop.roster?.length || 0) - keptRoster.length;
+    pop.roster = keptRoster;
+
+    // Rebuild every aggregate from the filtered roster rather than just
+    // deleting map keys, so total/byTenure/byLevel (which aren't keyed by
+    // dept) stay in sync too.
+    const byDept = {}, byDeptGroup = {}, byTenure = {}, byLevel = {};
+    keptRoster.forEach(e => {
+      if (e.dept)      byDept[e.dept]           = (byDept[e.dept]           || 0) + 1;
+      if (e.deptGroup) byDeptGroup[e.deptGroup] = (byDeptGroup[e.deptGroup] || 0) + 1;
+      if (e.tenure)    byTenure[e.tenure]       = (byTenure[e.tenure]       || 0) + 1;
+      if (e.level)     byLevel[e.level]         = (byLevel[e.level]         || 0) + 1;
+    });
+    pop.byDept = byDept;
+    pop.byDeptGroup = byDeptGroup;
+    pop.byTenure = byTenure;
+    pop.byLevel = byLevel;
+    pop.total = keptRoster.length;
+
+    // Also scrub the email-keyed lookups so an excluded person can't get
+    // rejoined onto anything via email elsewhere.
+    if (pop.emailToRoster) {
+      Object.keys(pop.emailToRoster).forEach(email => {
+        const hr = pop.emailToRoster[email];
+        if (isExcluded(hr.dept, hr.deptGroup)) delete pop.emailToRoster[email];
+      });
+    }
+    if (removedRoster) console.log(`applyDeptExclusions: removed ${removedRoster} roster entr${removedRoster===1?'y':'ies'} (${excludeDepts.join(', ')}) from ${quarter.label}'s population`);
+  }
+}
+
 function parsePopulation(quarter, popData) {
   try {
     const rows    = popData.rows    || [];
@@ -607,6 +662,17 @@ function parsePopulation(quarter, popData) {
       });
       console.log(`Roster join for ${quarter.label}: ${matched} matched by email, ${unmatched.length} fell back to self-reported form answers${unmatched.length ? ' → ' + JSON.stringify(unmatched.slice(0,10)) + (unmatched.length>10?' …':'') : ''}`);
     }
+
+    // Department exclusions (Config sheet's "exclude_depts" column) now mean a
+    // department is treated as NOT EXISTING for that quarter at all — not just
+    // removed from the Participation Rate denominator like before. This strips
+    // it from both respondents (even if someone from that dept did respond,
+    // that response is dropped) and the population roster/aggregates, done
+    // once here at the data layer so every downstream metric (THI Score, NPS,
+    // Heatmap, Top/Bottom items, Open Feedback by dept, Driver Matrix,
+    // Comparison, Participation) is automatically consistent without needing
+    // its own exclusion-aware logic.
+    applyDeptExclusions(quarter);
 
   } catch(e) {
     console.warn('Failed to parse population:', e);
@@ -774,6 +840,23 @@ window.initDataLoader = async function() {
     loadSRFeedback(),
   ]);
   THI.quarters = quarters;
+
+  // Open Feedback and Config load concurrently above (independent sheets), so
+  // this exclusion filter has to run AFTER both settle rather than inside
+  // loadOpenFeedback itself — THI.config isn't guaranteed populated yet while
+  // that runs in parallel. An excluded dept's curated Open Feedback entry for
+  // that quarter is dropped here too, same "doesn't exist this quarter" rule
+  // applyDeptExclusions already applies to respondents/population.
+  Object.keys(THI.openFeedback || {}).forEach(quarterLabel => {
+    const excludeDepts = THI.config?.[quarterLabel]?.excludeDepts;
+    if (!excludeDepts?.length) return;
+    const before = THI.openFeedback[quarterLabel].length;
+    THI.openFeedback[quarterLabel] = THI.openFeedback[quarterLabel].filter(entry =>
+      !excludeDepts.includes(entry.dept) && !excludeDepts.includes(getDeptGroup(entry.dept))
+    );
+    const removed = before - THI.openFeedback[quarterLabel].length;
+    if (removed) console.log(`Open Feedback: removed ${removed} entr${removed===1?'y':'ies'} (${excludeDepts.join(', ')}) for ${quarterLabel}`);
+  });
 
   const withUrl = quarters.filter(q => q.url);
   await Promise.all(withUrl.map(q => loadQuarterData(q)));
