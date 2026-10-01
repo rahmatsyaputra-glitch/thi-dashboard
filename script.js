@@ -760,6 +760,105 @@ document.addEventListener('click', e=>{
   CMP_Q_EXPANDED = {};
   renderAreaPerfTable(targetId);
 });
+// Participation table cell (by Department/Tenure/Level) — click to see the
+// Responded / Not Responded / Population breakdown behind that %, and click
+// "Not Responded" again to expand the actual names of who hasn't filled it in.
+let partCellPopoverEl = null;
+function closePartCellPopover(){
+  if(partCellPopoverEl){ partCellPopoverEl.remove(); partCellPopoverEl = null; }
+}
+// Roster entries (name/email/dept/tenure/level) for this category that haven't
+// responded this quarter yet — matched by email against who actually did.
+function getNonRespondentNames(qObj, catType, catLabel){
+  const roster = qObj?.population?.roster;
+  if(!roster?.length) return null; // no roster detail loaded for this quarter — can't break it down by name
+  const matchesCat = entry => {
+    if(catType==='dept') return catLabel==='Marketing' ? entry.deptGroup==='Marketing' : entry.dept===catLabel;
+    if(catType==='tenure') return entry.tenure===catLabel;
+    if(catType==='level') return entry.level===catLabel;
+    return false;
+  };
+  // Mirror the same dept exclusion used for the Tenure/Level population counts
+  // (getExcludedHeadcountInBucket) — but ONLY when browsing by Tenure/Level.
+  // Clicking an excluded dept's OWN row (e.g. Boss Creator in the Department
+  // table) must still show its real names: that row was never affected by the
+  // exclusion in the first place (getDeptData shows every dept's true numbers;
+  // the exclusion only keeps an excluded dept's headcount from leaking into
+  // OTHER buckets' totals), so filtering it out here would wrongly empty it.
+  const excludeDepts = catType!=='dept' ? (THI.config?.[qObj?.label]?.excludeDepts || []) : [];
+  const isExcluded = entry => excludeDepts.some(d=> d==='Marketing' ? entry.deptGroup==='Marketing' : entry.dept===d);
+  const respondedEmails = new Set((qObj.respondents||[]).map(r=>r.email).filter(Boolean));
+  return roster
+    .filter(entry => matchesCat(entry) && !isExcluded(entry) && !(entry.email && respondedEmails.has(entry.email)))
+    .map(entry => entry.name)
+    .sort((a,b)=>a.localeCompare(b));
+}
+function renderPartCellPopover(cat, catType, quarter, res, notresp, pop, namesExpanded){
+  const qObj = THI.quarters.find(q=>q.label===quarter);
+  const names = namesExpanded ? getNonRespondentNames(qObj, catType, cat) : null;
+  let namesHtml = '';
+  if(namesExpanded){
+    if(names===null) namesHtml = `<div class="pcp-names-empty">Roster detail not available for this quarter.</div>`;
+    else if(!names.length) namesHtml = `<div class="pcp-names-empty">Nobody — everyone in this group responded.</div>`;
+    else namesHtml = `<div class="pcp-names-list">${names.map(n=>`<div class="pcp-name">${n}</div>`).join('')}</div>`;
+  }
+  return `
+    <div class="pcp-title">${cat} — ${quarter}</div>
+    <div class="pcp-row"><span class="pcp-dot" style="background:#16a34a"></span>Responded<span class="pcp-val">${Number(res).toLocaleString()}</span></div>
+    <div class="pcp-row pcp-notresp-row" data-expanded="${!!namesExpanded}"><span class="pcp-dot" style="background:#dc2626"></span>Not Responded<span class="pcp-val">${Number(notresp).toLocaleString()}</span><i class="ti ${namesExpanded?'ti-chevron-up':'ti-chevron-down'} pcp-chevron"></i></div>
+    ${namesHtml}
+    <div class="pcp-row pcp-total"><span class="pcp-dot" style="background:#14213D"></span>Population<span class="pcp-val">${Number(pop).toLocaleString()}</span></div>
+  `;
+}
+function positionPartCellPopover(pop_, anchorCell){
+  const r = anchorCell.getBoundingClientRect();
+  const pw = pop_.offsetWidth, ph = pop_.offsetHeight;
+  let left = r.left + r.width/2 - pw/2 + window.scrollX;
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8 + window.scrollX));
+  let top = r.bottom + 6 + window.scrollY;
+  if(top + ph > window.innerHeight + window.scrollY) top = r.top - ph - 6 + window.scrollY; // flip above if no room below
+  if(top < window.scrollY + 8) top = window.scrollY + 8; // last resort: don't go off the top either
+  pop_.style.left = left+'px';
+  pop_.style.top = top+'px';
+}
+document.addEventListener('click', e=>{
+  // Toggle the name list inside an already-open popover.
+  const notRespRow = e.target.closest('.pcp-notresp-row');
+  if(notRespRow && partCellPopoverEl){
+    const { cat, catType, quarter, res, notresp, pop } = partCellPopoverEl.dataset;
+    const nowExpanded = notRespRow.dataset.expanded !== 'true';
+    partCellPopoverEl.innerHTML = renderPartCellPopover(cat, catType, quarter, res, notresp, pop, nowExpanded);
+    const anchor = partCellPopoverEl._anchorCell;
+    if(anchor) positionPartCellPopover(partCellPopoverEl, anchor);
+    return;
+  }
+
+  const cell = e.target.closest('.part-cell-clickable');
+  if(!cell){
+    // Clicking anywhere else (that isn't the popover itself) closes it.
+    if(!e.target.closest('.part-cell-popover')) closePartCellPopover();
+    return;
+  }
+  const wasOpenOnThisCell = partCellPopoverEl && partCellPopoverEl.dataset.forCell === cell.dataset.cat+'|'+cell.dataset.quarter;
+  closePartCellPopover();
+  if(wasOpenOnThisCell) return; // clicking the same cell again just closes it
+
+  const { cat, catType, quarter, res, notresp, pop } = cell.dataset;
+  const pop_ = document.createElement('div');
+  pop_.className = 'part-cell-popover';
+  pop_.dataset.forCell = cat+'|'+quarter;
+  pop_.dataset.cat = cat;
+  pop_.dataset.catType = catType;
+  pop_.dataset.quarter = quarter;
+  pop_.dataset.res = res;
+  pop_.dataset.notresp = notresp;
+  pop_.dataset.pop = pop;
+  pop_.innerHTML = renderPartCellPopover(cat, catType, quarter, res, notresp, pop, false);
+  pop_._anchorCell = cell;
+  document.body.appendChild(pop_);
+  positionPartCellPopover(pop_, cell);
+  partCellPopoverEl = pop_;
+});
 // Level pill (inside an expanded area's detail) — general dashboard only.
 document.addEventListener('click', e=>{
   const btn = e.target.closest('.level-pill-wrap .view-toggle-btn');
@@ -1792,6 +1891,20 @@ function getEffectivePopulationTotal(qObj){
   const excluded = excludeDepts.reduce((sum,d)=>sum+(qObj.population.byDept[d]||0), 0);
   return Math.max(0, rawTotal-excluded);
 }
+// Same exclusion, but scoped to a single Tenure or Level bucket rather than the
+// grand total — needed because "Participation by Tenure/Level" computes its own
+// population count per bucket, entirely separate from getEffectivePopulationTotal
+// above, so an excluded dept's headcount was still silently counted there even
+// after the overall Participation Rate correctly excluded it. Walks the roster
+// (not just the aggregate byDept count) since it needs to match on tenure/level
+// too, not just department.
+function getExcludedHeadcountInBucket(qObj, matchBucket){
+  const excludeDepts = THI.config?.[qObj?.label]?.excludeDepts;
+  if(!excludeDepts?.length || !qObj?.population?.roster) return 0;
+  return qObj.population.roster.filter(entry=>
+    excludeDepts.some(d=> d==='Marketing' ? entry.deptGroup==='Marketing' : entry.dept===d) && matchBucket(entry)
+  ).length;
+}
 
 function renderParticipation(){
   const q   = THI.quarters[THI.activeQuarter];
@@ -2033,7 +2146,7 @@ function renderParticipation(){
 
 
   // Helper: build participation table — all quarters as columns, delta from Q2+
-  const buildPartTable = (tableId, getRowData) => {
+  const buildPartTable = (tableId, getRowData, catType) => {
     const el = document.getElementById(tableId);
     if(!el) return;
     const loadedQs = THI.quarters.filter(q=>q.loaded&&q.respondents?.length);
@@ -2048,7 +2161,8 @@ function renderParticipation(){
     categories.forEach(cat=>{
       const cells = THI.quarters.map((q,qi)=>{
         if(!q.loaded||!q.respondents?.length) return `<td style="text-align:center;color:#cbd5e1">—</td>`;
-        const {curr: val} = getRowData(q, q.respondents).find(r=>r.label===cat.label)||{curr:null};
+        const row = getRowData(q, q.respondents).find(r=>r.label===cat.label);
+        const val = row?.curr ?? null;
         if(val===null) return `<td style="text-align:center;color:#cbd5e1">—</td>`;
 
         // Delta from Q2 onwards
@@ -2067,7 +2181,8 @@ function renderParticipation(){
         }
         // Highlight: 100% = blue, <80% = red, else normal
         const bg = val>=99.5?'background:#e8f0fe;color:#1d4ed8;font-weight:700':val<80?'background:#fee2e2;color:#dc2626;font-weight:700':'';
-        return `<td style="text-align:center;font-size:.82rem;font-weight:600;${bg}">${dp(val)}%${deltaHtml}</td>`;
+        const res = row.res ?? 0, pop = row.pop ?? 0, notResp = Math.max(0, pop-res);
+        return `<td class="part-cell-clickable" style="text-align:center;font-size:.82rem;font-weight:600;cursor:pointer;${bg}" data-cat="${cat.label}" data-cat-type="${catType}" data-quarter="${q.label}" data-res="${res}" data-notresp="${notResp}" data-pop="${pop}">${dp(val)}%${deltaHtml}</td>`;
       }).join('');
       const tr = document.createElement('tr');
       tr.innerHTML = `<td style="font-size:.8rem;font-weight:500">${cat.label}</td>${cells}`;
@@ -2105,29 +2220,31 @@ function renderParticipation(){
         ? (q?.population?.byDeptGroup?.Marketing || resp.filter(r=>r.deptGroup==='Marketing').length)
         : (q?.population?.byDept?.[d] || resp.filter(r=>r.dept===d).length);
       const dRes = isMarketing ? resp.filter(r=>r.deptGroup==='Marketing').length : resp.filter(r=>r.dept===d).length;
-      return {label:d, curr:dPop>0?(dRes/dPop*100):null};
+      return {label:d, curr:dPop>0?(dRes/dPop*100):null, pop:dPop, res:dRes};
     });
   };
   const TORD=['< 6 months','6 months – 1 yr','1 – 2 years','2 – 3 years','3 – 4 years','4 – 5 years','> 5 years'];
   const getTenureData = (q, resp) => {
     return TORD.filter(t=>resp.some(r=>r.tenure===t)).map(t=>{
-      const tPop = q?.population?.byTenure?.[t] || resp.filter(r=>r.tenure===t).length;
+      const rawPop = q?.population?.byTenure?.[t] || resp.filter(r=>r.tenure===t).length;
+      const tPop = Math.max(0, rawPop - getExcludedHeadcountInBucket(q, e=>e.tenure===t));
       const tRes = resp.filter(r=>r.tenure===t).length;
-      return {label:t, curr:tPop>0?(tRes/tPop*100):null};
+      return {label:t, curr:tPop>0?(tRes/tPop*100):null, pop:tPop, res:tRes};
     });
   };
   const LEVEL_ORD = ['Associate','Sr. Associate','Manager','Sr. Manager','Functional','Team Lead'];
   const getLevelData = (q, resp) => {
     return LEVEL_ORD.filter(l=>resp.some(r=>r.level===l)).map(l=>{
-      const lPop = q?.population?.byLevel?.[l] || resp.filter(r=>r.level===l).length;
+      const rawPop = q?.population?.byLevel?.[l] || resp.filter(r=>r.level===l).length;
+      const lPop = Math.max(0, rawPop - getExcludedHeadcountInBucket(q, e=>e.level===l));
       const lRes = resp.filter(r=>r.level===l).length;
-      return {label:l, curr:lPop>0?(lRes/lPop*100):null};
+      return {label:l, curr:lPop>0?(lRes/lPop*100):null, pop:lPop, res:lRes};
     });
   };
 
-  buildPartTable('partDeptTable', getDeptData);
-  buildPartTable('partTenureTable', getTenureData);
-  buildPartTable('partLevelTable', getLevelData);
+  buildPartTable('partDeptTable', getDeptData, 'dept');
+  buildPartTable('partTenureTable', getTenureData, 'tenure');
+  buildPartTable('partLevelTable', getLevelData, 'level');
 }
 // ── HEATMAP VIEW TOGGLE ───────────────────────────────────────────
 let STATE_BUBBLE_AREA = 'all'; // 'all' or area key

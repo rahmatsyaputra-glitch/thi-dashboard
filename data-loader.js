@@ -141,11 +141,17 @@ function parseRow(row, col, checklistCols) {
   return {
     timestamp: row[0],
     email:     (row[col.email] || '').toString().trim().toLowerCase(),
+    // city/dept/deptGroup/tenure/level below are SELF-REPORTED form answers —
+    // used only as a fallback for a respondent whose email isn't found in the
+    // Participant roster. For everyone else, parsePopulation's roster join
+    // (in loadQuarterData, right after this parses) overwrites all five with
+    // the authoritative HR data, since Timmys often get their own Team/tenure/
+    // location form answers wrong or stale.
     city:      normalizeCity(row[col.city]),
     dept:      normalizeTeam(row[col.dept]),
     deptGroup: getDeptGroup(normalizeTeam(row[col.dept])),
     tenure:    parseTenure(row[col.tenure]),
-    level:     null, // filled in later via loadQuarterData's Participant-sheet join
+    level:     null, // only ever comes from the roster join — no self-reported fallback exists for this one
     qs,
     q45:       row[col.q45] || '',
     q46:       row[col.q46] || '',
@@ -455,8 +461,12 @@ async function loadQuarterData(quarter) {
     const col = qCol || COL;
     const ckCols = qChecklistCols.length ? qChecklistCols : CHECKLIST_COLS;
 
+    // Require email + at least one survey answer to count as a respondent — NOT
+    // a filled-in "Team" field, since dept now comes from the Participant
+    // roster join below rather than this self-reported form field, and
+    // requiring it here could wrongly drop a real response that left it blank.
     const respondents = (data.respondents || [])
-      .filter(row => row[col.dept] && row[col.q_start])
+      .filter(row => row[col.email] && row[col.q_start])
       .map(row => parseRow(row, col, ckCols))
       .filter(r => r.qs.some(v => v !== null));
 
@@ -483,29 +493,48 @@ function parsePopulation(quarter, popData) {
     const headers = popData.headers || [];
     const total   = popData.total   || rows.length;
 
-    // Auto-detect dept, tenure, email, and level columns from headers
+    // Auto-detect dept, tenure, email, level, name, and city columns from headers.
+    // The Participant sheet is the authoritative HR roster for all of these — a
+    // Timmy's self-reported answers in the survey form (Team/tenure/location
+    // dropdowns) are frequently wrong or stale, so those fields get OVERWRITTEN
+    // from this roster by email further down (see the join after parseRow),
+    // rather than trusted from the form. Email is the only field read from the
+    // form responses for identification/joining purposes.
     let deptCol   = -1;
     let tenureCol = -1;
     let emailCol  = -1;
     let levelCol  = -1;
+    let nameCol   = -1;
+    let cityCol   = -1;
     headers.forEach((h, i) => {
       const hl = (h || '').toString().trim().toLowerCase();
       if (deptCol   === -1 && (hl === 'department' || hl.includes('dept') || hl === 'team')) deptCol = i;
       if (emailCol  === -1 && (hl === 'email' || hl === 'email address')) emailCol = i;
       if (levelCol  === -1 && (hl === 'level' || hl === 'leveling' || hl.includes('level'))) levelCol = i;
+      // "Name"/"Full Name"/"Nama" but not things like "Username" or "Department Name"
+      if (nameCol   === -1 && (hl === 'name' || hl === 'full name' || hl === 'nama' || hl === 'employee name')) nameCol = i;
+      if (cityCol   === -1 && (hl === 'office location' || hl === 'city' || hl === 'location')) cityCol = i;
     });
 
     // Fallback to known positions if not found in headers
     if (deptCol   === -1) deptCol   = 8;  // column I
     tenureCol = 20; // column U — always, no header-name guessing (avoids re-matching the wrong column)
 
-    console.log(`Participant: total=${total}, deptCol=${deptCol}(${headers[deptCol]}), tenureCol=${tenureCol}(${headers[tenureCol]}), emailCol=${emailCol}(${headers[emailCol]}), levelCol=${levelCol}(${headers[levelCol]})`);
+    console.log(`Participant: total=${total}, deptCol=${deptCol}(${headers[deptCol]}), tenureCol=${tenureCol}(${headers[tenureCol]}), emailCol=${emailCol}(${headers[emailCol]}), levelCol=${levelCol}(${headers[levelCol]}), nameCol=${nameCol}(${headers[nameCol]})`);
     console.log('Participant sheet headers →', JSON.stringify(headers));
 
     const byDept = {}, byDeptGroup = {}, byTenure = {}, byLevel = {};
     const emailToLevel = {};
+    // The single source of truth for joining HR data onto each survey response
+    // by email — dept/deptGroup/tenure/city/level all come from here, not from
+    // whatever the Timmy typed/selected in the survey form itself.
+    const emailToRoster = {};
     let levelColRawSample = [];
     const tenureRawSeen = {}; // raw text -> {parsedTo, count} — diagnoses unmatched tenure text
+    // Individual roster entries — needed to answer "who specifically hasn't
+    // responded yet" (Participation table's click-to-detail popover), not just
+    // the aggregate counts below. Keeps only what that feature needs.
+    const roster = [];
 
     if (rows.length && deptCol > -1) {
       rows.forEach(r => {
@@ -513,6 +542,7 @@ function parsePopulation(quarter, popData) {
         const group  = getDeptGroup(dept);
         const tenureRaw = (r[tenureCol] || '').toString().trim();
         const tenure = parseTenure(r[tenureCol]);
+        const city   = cityCol > -1 ? normalizeCity(r[cityCol]) : null;
         if (dept)   byDept[dept]         = (byDept[dept]      || 0) + 1;
         if (group)  byDeptGroup[group]   = (byDeptGroup[group]|| 0) + 1;
         if (tenure) byTenure[tenure]     = (byTenure[tenure]  || 0) + 1;
@@ -520,16 +550,21 @@ function parsePopulation(quarter, popData) {
           if (!tenureRawSeen[tenureRaw]) tenureRawSeen[tenureRaw] = { parsedTo: tenure, count: 0 };
           tenureRawSeen[tenureRaw].count++;
         }
+        let normLevel = null;
         if (emailCol > -1 && levelCol > -1) {
           const email = (r[emailCol] || '').toString().trim().toLowerCase();
           const level = (r[levelCol] || '').toString().trim();
           if (levelColRawSample.length < 5) levelColRawSample.push(r[levelCol]);
           if (email && level) {
-            const normLevel = normalizeLevel(level);
+            normLevel = normalizeLevel(level);
             emailToLevel[email] = normLevel;
             if (normLevel) byLevel[normLevel] = (byLevel[normLevel] || 0) + 1;
           }
         }
+        const email = emailCol > -1 ? (r[emailCol] || '').toString().trim().toLowerCase() : '';
+        const name  = nameCol  > -1 ? (r[nameCol]  || '').toString().trim() : '';
+        if (email) emailToRoster[email] = { dept, deptGroup: group, tenure, city, level: normLevel };
+        if (email || name) roster.push({ name: name || email || 'Unknown', email, dept, deptGroup: group, tenure, level: normLevel });
       });
     }
     if (levelCol > -1) console.log('Sample raw values from detected Level column →', JSON.stringify(levelColRawSample));
@@ -541,13 +576,36 @@ function parsePopulation(quarter, popData) {
       byDeptGroup,
       byTenure,
       byLevel,
-      emailToLevel, // used to join Level onto each respondent via email
+      emailToLevel, // kept for compat; superseded by emailToRoster below
+      emailToRoster, // {dept,deptGroup,tenure,city,level} by email — the HR source of truth
+      roster, // individual {name,email,dept,deptGroup,tenure,level} — for "who hasn't responded"
     };
-    console.log(`Population set for ${quarter.label}: ${quarter.population.total} total, ${Object.keys(emailToLevel).length} with Level`);
+    console.log(`Population set for ${quarter.label}: ${quarter.population.total} total, ${Object.keys(emailToLevel).length} with Level, ${Object.keys(emailToRoster).length} with full roster match`);
 
-    // Join Level onto already-parsed respondents (if respondents were loaded first)
-    if (quarter.respondents?.length && Object.keys(emailToLevel).length) {
-      quarter.respondents.forEach(r => { r.level = emailToLevel[r.email] || null; });
+    // Overwrite each respondent's dept/deptGroup/tenure/city/level with the
+    // Participant roster's values, joined by email — the HR roster is treated
+    // as authoritative over whatever the Timmy typed/selected in the survey
+    // form itself (self-reported Team/tenure/location answers are frequently
+    // wrong or stale). A respondent whose email isn't found in the roster
+    // (e.g. a brand-new hire not yet added, or a typo'd email) keeps their
+    // self-reported form values as a fallback rather than losing the data —
+    // logged below so mismatches stay visible rather than silently swallowed.
+    if (quarter.respondents?.length) {
+      let matched = 0, unmatched = [];
+      quarter.respondents.forEach(r => {
+        const hr = emailToRoster[r.email];
+        if (hr) {
+          r.dept = hr.dept || r.dept;
+          r.deptGroup = hr.deptGroup || r.deptGroup;
+          r.tenure = hr.tenure || r.tenure;
+          r.city = hr.city || r.city;
+          r.level = hr.level ?? r.level;
+          matched++;
+        } else {
+          unmatched.push(r.email);
+        }
+      });
+      console.log(`Roster join for ${quarter.label}: ${matched} matched by email, ${unmatched.length} fell back to self-reported form answers${unmatched.length ? ' → ' + JSON.stringify(unmatched.slice(0,10)) + (unmatched.length>10?' …':'') : ''}`);
     }
 
   } catch(e) {
