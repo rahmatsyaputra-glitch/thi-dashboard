@@ -11,7 +11,22 @@
 
 // ─── CONFIG ───────────────────────────────────────────────────────────
 const GATEWAY_URL   = 'https://script.google.com/macros/s/AKfycbxIGm4lZscQOV_rNJPrWu89qH5_IGa9ZsFQ-Da2gHHbCK6wajPUH6jtCVMmbk1eovCO7w/exec';
-const GATEWAY_TOKEN = 'GW_hynCwPyhXbXi3vNAkArqluMh';
+const GATEWAY_TOKEN = 'GW_hynCwPyhXbXi3vNAkArqluMh'; // bukan rahasia -- akses sebenarnya dijaga oleh sesi dari portal
+const PORTAL_URL    = 'https://people-dashboard-hub.netlify.app/dashboard.html';
+
+// ─── TEKS AMAN ────────────────────────────────────────────────────────
+// Jawaban bebas dari survei (Q45/Q46, "Other") ditulis karyawan, lalu
+// ditampilkan dashboard lewat innerHTML. Di-escape SEKALI di sini, saat
+// data dibaca, supaya isi seperti "<img onerror=...>" tampil sebagai teks
+// biasa dan tidak pernah dijalankan.
+function escapeHtml(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+// Untuk nilai pendek yang dipakai sebagai label/kunci (department, lokasi,
+// masa kerja yang tidak dikenal): buang karakter berbahaya saja.
+function stripUnsafe(v) {
+  return String(v == null ? '' : v).replace(/[<>"'`&]/g, '');
+}
 
 // ─── SURVEY DURATION CONFIG ───────────────────────────────────────────
 const SURVEY_DURATION = {
@@ -136,8 +151,8 @@ function parseRow(row, col, checklistCols) {
     else checklist[label] = null;
   });
   // "Other V"/"Other X" — free-text custom topic names, not V/X marks
-  const otherWell = OTHER_V_COLS.map(idx => (row[idx] || '').toString().trim()).filter(Boolean);
-  const otherImprove = OTHER_X_COLS.map(idx => (row[idx] || '').toString().trim()).filter(Boolean);
+  const otherWell = OTHER_V_COLS.map(idx => escapeHtml((row[idx] || '').toString().trim())).filter(Boolean);
+  const otherImprove = OTHER_X_COLS.map(idx => escapeHtml((row[idx] || '').toString().trim())).filter(Boolean);
   return {
     timestamp: row[0],
     email:     (row[col.email] || '').toString().trim().toLowerCase(),
@@ -153,8 +168,8 @@ function parseRow(row, col, checklistCols) {
     tenure:    parseTenure(row[col.tenure]),
     level:     null, // only ever comes from the roster join — no self-reported fallback exists for this one
     qs,
-    q45:       row[col.q45] || '',
-    q46:       row[col.q46] || '',
+    q45:       escapeHtml(row[col.q45] || ''),
+    q46:       escapeHtml(row[col.q46] || ''),
     checklist,
     otherWell,
     otherImprove,
@@ -180,7 +195,7 @@ function normalizeCity(raw) {
   };
   if (map[t]) return map[t];
   const key = Object.keys(map).find(k => k.toLowerCase() === t.toLowerCase());
-  return key ? map[key] : t.toUpperCase(); // unknown city — still normalize casing rather than discard it
+  return key ? map[key] : stripUnsafe(t).toUpperCase(); // unknown city — still normalize casing rather than discard it
 }
 
 function normalizeTeam(raw) {
@@ -202,7 +217,7 @@ function normalizeTeam(raw) {
   const key = Object.keys(map).find(k => k.toLowerCase() === t.toLowerCase());
   if (key) return map[key];
   if (t) console.warn('Unknown dept:', t);
-  return t || 'Unknown';
+  return stripUnsafe(t) || 'Unknown';
 }
 
 // Some departments were renamed/merged between quarters. "Business Development" → "Commercial"
@@ -232,7 +247,7 @@ function parseTenure(raw) {
   if (t.includes('3') && t.includes('4')) return '3 – 4 years';
   if (t.includes('4') && t.includes('5')) return '4 – 5 years';
   if (t.includes('5') || t.includes('more than') || t.includes('lebih')) return '> 5 years';
-  return raw || '';
+  return stripUnsafe(raw || '');
 }
 
 // Buckets a raw "Position Level" value into one of 6 canonical levels.
@@ -390,7 +405,8 @@ window.THI = {
 async function gatewayFetch(params, retries = 2, delayMs = 800) {
   const url = new URL(GATEWAY_URL);
   url.searchParams.set('token', GATEWAY_TOKEN);
-  if (THI.accessToken && !params.access_token) url.searchParams.set('access_token', THI.accessToken);
+  if (THI.session && !params.session) url.searchParams.set('session', THI.session);
+  else if (THI.accessToken && !params.access_token) url.searchParams.set('access_token', THI.accessToken);
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
 
   let lastErr;
@@ -400,6 +416,15 @@ async function gatewayFetch(params, retries = 2, delayMs = 800) {
       if (!res.ok) throw new Error(`Gateway error: ${res.status}`);
       const data = await res.json();
 
+      // Akses ditolak (sesi habis / tidak valid) -- jangan diulang, dan catat
+      // supaya init() menampilkan layar "buka lagi dari portal".
+      if (data && data.__auth_error) {
+        THI.authError = THI.authError || data.__auth_error;
+        const err = new Error('Access denied: ' + data.__auth_error);
+        err.authError = data.__auth_error;
+        throw err;
+      }
+
       const isTransientUpstreamError = data && data.error && /returned \d+/.test(data.error);
       if (isTransientUpstreamError && attempt < retries) {
         throw new Error(data.error);
@@ -407,6 +432,7 @@ async function gatewayFetch(params, retries = 2, delayMs = 800) {
       return data;
     } catch (e) {
       lastErr = e;
+      if (e.authError) throw e;
       if (attempt < retries) {
         console.warn(`Gateway fetch failed (attempt ${attempt + 1}/${retries + 1}) for ${JSON.stringify(params)}, retrying in ${delayMs * (attempt + 1)}ms...`, e.message);
         await new Promise(r => setTimeout(r, delayMs * (attempt + 1)));
@@ -561,7 +587,9 @@ function parsePopulation(quarter, popData) {
     let levelCol  = -1;
     let nameCol   = -1;
     let cityCol   = -1;
+    let respondedCol = -1; // "__responded": dikirim server untuk user department (email dihapus)
     headers.forEach((h, i) => {
+      if ((h || '').toString().trim() === '__responded') respondedCol = i;
       const hl = (h || '').toString().trim().toLowerCase();
       if (deptCol   === -1 && (hl === 'department' || hl.includes('dept') || hl === 'team')) deptCol = i;
       if (emailCol  === -1 && (hl === 'email' || hl === 'email address')) emailCol = i;
@@ -617,9 +645,10 @@ function parsePopulation(quarter, popData) {
           }
         }
         const email = emailCol > -1 ? (r[emailCol] || '').toString().trim().toLowerCase() : '';
-        const name  = nameCol  > -1 ? (r[nameCol]  || '').toString().trim() : '';
+        const name  = nameCol  > -1 ? escapeHtml((r[nameCol]  || '').toString().trim()) : '';
+        const responded = respondedCol > -1 && (r[respondedCol] || '').toString().trim() === 'Y';
         if (email) emailToRoster[email] = { dept, deptGroup: group, tenure, city, level: normLevel };
-        if (email || name) roster.push({ name: name || email || 'Unknown', email, dept, deptGroup: group, tenure, level: normLevel });
+        if (email || name) roster.push({ name: name || escapeHtml(email) || 'Unknown', email, dept, deptGroup: group, tenure, level: normLevel, responded });
       });
     }
     if (levelCol > -1) console.log('Sample raw values from detected Level column →', JSON.stringify(levelColRawSample));
@@ -691,7 +720,7 @@ function parseBullets(text) {
   if (!text) return [];
   return text.toString()
     .split(/\r?\n/)
-    .map(line => line.replace(/^[-•]\s*/, '').trim())
+    .map(line => escapeHtml(line.replace(/^[-•]\s*/, '').trim()))
     .filter(line => line.length > 0);
 }
 
@@ -793,9 +822,9 @@ async function loadSRFeedback() {
       if (!tree[quarter][location]) tree[quarter][location] = {};
       if (!tree[quarter][location][area]) tree[quarter][location][area] = { well: [], improve: [], keywords: [] };
       const bucket = tree[quarter][location][area];
-      if (type === 'well') bucket.well.push(text);
-      else if (type === 'improve') bucket.improve.push(text);
-      else if (type === 'keyword') bucket.keywords.push(text);
+      if (type === 'well') bucket.well.push(escapeHtml(text));
+      else if (type === 'improve') bucket.improve.push(escapeHtml(text));
+      else if (type === 'keyword') bucket.keywords.push(escapeHtml(text));
     });
     THI.srFeedback = tree;
     console.log(`Loaded SR Feedback: ${Object.keys(tree).map(q => `${q} (${Object.keys(tree[q]).join('/')})`).join(', ')}`);
@@ -806,24 +835,65 @@ async function loadSRFeedback() {
 }
 window.loadSRFeedback = loadSRFeedback;
 
-// ── ACCESS TOKEN (per-department / admin / special role) ────────────
-// Reads ?t=<token> from the URL and asks the gateway which department it
-// unlocks. Returns {department:'ALL'} for admin, {department:'Engineering'}
-// for a scoped dept token, {department:'ALL:Office Management'} for a
-// full-access "special role" token (sees all depts, but gets its own
-// dashboard design — see THI.specialRole below), or {error:'...'} if
-// missing/invalid.
+// ── AKSES: tiket dari portal -> sesi ─────────────────────────────────
+// Dashboard dibuka dari portal dengan ?ticket=... (sekali pakai, 2 menit).
+// Tiket ditukar ke gateway menjadi "sesi" (8 jam), lalu langsung dihapus
+// dari address bar. Sesi disimpan di sessionStorage tab ini saja -- tidak
+// ikut kalau link dibagikan, hilang saat tab ditutup. Link lama (?t=...)
+// masih jalan selama gateway mengizinkan (ALLOW_LEGACY_TOKEN).
+// Hasil: {department:'ALL'} admin, {department:'ALL:Office Management'}
+// special role, {department:'Engineering'} department, atau {error:'...'}.
+const THI_ACCESS_KEY = 'thi_dashboard_access';
+const THI_CLAIM_KEY  = 'thi_dashboard_claim';
+const tabStore = {
+  get(k)   { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+  set(k,v) { try { sessionStorage.setItem(k, v); } catch (e) {} },
+  del(k)   { try { sessionStorage.removeItem(k); } catch (e) {} },
+};
+
 async function resolveAccessToken() {
   const params = new URLSearchParams(window.location.search);
-  const accessToken = params.get('t');
-  if (!accessToken) return { error: 'missing' };
-  THI.accessToken = accessToken;
+  const ticket = params.get('ticket');
+  const legacy = params.get('t');
+  if (ticket || legacy) {
+    params.delete('ticket'); params.delete('t');
+    const qs = params.toString();
+    history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+  }
+
   try {
-    const data = await gatewayFetch({ action: 'resolveToken', access_token: accessToken });
-    if (data.error) return { error: data.error };
+    if (ticket) {
+      let claim = tabStore.get(THI_CLAIM_KEY);
+      if (!claim) {
+        claim = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+        tabStore.set(THI_CLAIM_KEY, claim);
+      }
+      const data = await gatewayFetch({ action: 'exchange_ticket', ticket, claim });
+      if (!data.ok || !data.session) { tabStore.del(THI_ACCESS_KEY); return { error: data.error || 'ticket_invalid' }; }
+      THI.session = data.session;
+      tabStore.set(THI_ACCESS_KEY, JSON.stringify({ session: data.session }));
+      return { department: data.department };
+    }
+
+    if (legacy) {
+      THI.accessToken = legacy;
+      tabStore.set(THI_ACCESS_KEY, JSON.stringify({ token: legacy }));
+    } else {
+      // Refresh di tab yang sama: pakai sesi/token yang tersimpan.
+      let saved = null;
+      try { saved = JSON.parse(tabStore.get(THI_ACCESS_KEY) || 'null'); } catch (e) {}
+      if (saved && saved.session) THI.session = saved.session;
+      else if (saved && saved.token) THI.accessToken = saved.token;
+      else return { error: 'no_access' };
+    }
+    const data = await gatewayFetch({ action: 'whoami' });
+    if (data.error || !data.department) { tabStore.del(THI_ACCESS_KEY); return { error: data.__auth_error || 'no_access' }; }
     return { department: data.department };
   } catch (e) {
-    return { error: e.message };
+    if (e.authError) { tabStore.del(THI_ACCESS_KEY); return { error: e.authError }; }
+    return { error: 'network_error' };
   }
 }
 window.resolveAccessToken = resolveAccessToken;

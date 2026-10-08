@@ -789,7 +789,8 @@ function getNonRespondentNames(qObj, catType, catLabel){
   const isExcluded = entry => excludeDepts.some(d=> d==='Marketing' ? entry.deptGroup==='Marketing' : entry.dept===d);
   const respondedEmails = new Set((qObj.respondents||[]).map(r=>r.email).filter(Boolean));
   return roster
-    .filter(entry => matchesCat(entry) && !isExcluded(entry) && !(entry.email && respondedEmails.has(entry.email)))
+    // entry.responded: penanda dari server untuk user department (email dihapus di sana)
+    .filter(entry => matchesCat(entry) && !isExcluded(entry) && !entry.responded && !(entry.email && respondedEmails.has(entry.email)))
     .map(entry => entry.name)
     .sort((a,b)=>a.localeCompare(b));
 }
@@ -3147,19 +3148,12 @@ function switchTab(n){
 // ── INIT ──────────────────────────────────────────────────────────────
 async function init(){
   try{
-    // resolveAccessToken() sets THI.accessToken synchronously before its first await,
-    // so it's safe to kick off data loading at the same time instead of waiting for
-    // token resolution to fully round-trip first — cuts a full sequential Apps Script
-    // call off the critical path.
-    const [access] = await Promise.all([
-      resolveAccessToken(),
-      window.initDataLoader(),
-    ]);
-    if(access.error){
-      document.getElementById('loadingState').style.display='none';
-      document.getElementById('accessDenied').style.display='flex';
-      return;
-    }
+    // Akses dipastikan DULU (tiket dari portal ditukar jadi sesi), baru data
+    // diambil -- tanpa akses yang valid, tidak ada data yang diunduh.
+    const access = await resolveAccessToken();
+    if(access.error){ showAccessDenied(access.error); return; }
+    await window.initDataLoader();
+    if(THI.authError){ showAccessDenied(THI.authError); return; } // sesi habis saat memuat data
     // "ALL" → regular admin (sees everything, standard dashboard).
     // "ALL:<Role Name>" → a special full-access role (Office Management, Culture &
     // Learning, ...) — same full data access as admin, but flagged separately so a
@@ -3186,8 +3180,29 @@ async function init(){
     }
   }catch(err){
     console.error(err);
-    document.getElementById('loadingState').innerHTML=`<div style="text-align:center;max-width:440px;padding:40px"><i class="ti ti-alert-circle" style="font-size:2.5rem;color:#ef4444"></i><h2 style="margin:12px 0 8px;color:#ef4444">Could not load data</h2><p style="color:#94a3b8;font-size:.88rem;line-height:1.6">Make sure Google Sheets are set to <strong>"Anyone with the link can view"</strong>.<br><br><code style="background:#f1f5f9;padding:4px 8px;border-radius:4px;font-size:.78rem">${err.message}</code></p></div>`;
+    const msg=String(err&&err.message||err).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    document.getElementById('loadingState').innerHTML=`<div style="text-align:center;max-width:440px;padding:40px"><i class="ti ti-alert-circle" style="font-size:2.5rem;color:#ef4444"></i><h2 style="margin:12px 0 8px;color:#ef4444">Could not load data</h2><p style="color:#94a3b8;font-size:.88rem;line-height:1.6">Please try again in a moment. If this keeps happening, contact the People &amp; Culture team.<br><br><code style="background:#f1f5f9;padding:4px 8px;border-radius:4px;font-size:.78rem">${msg}</code></p></div>`;
   }
+}
+
+// Layar akses ditolak -- teksnya statis (bukan dari sheet), jadi aman.
+const ACCESS_MESSAGES={
+  no_access:['Your dashboard is ready','This dashboard can only be opened from the People portal with your signed-in IDN Google account.'],
+  ticket_invalid:['This link has expired',"Dashboard links open once and only for a few minutes, so they can't be shared. Reopen the dashboard from the People portal."],
+  ticket_used:['This link has already been used',"Dashboard links open once, so they can't be shared. Reopen the dashboard from the People portal."],
+  session_invalid:['Your session has ended','For security, sessions close after a few hours. Reopen the dashboard from the People portal to continue.'],
+  department_not_configured:['Your department is not set up yet',"Your department doesn't match any department in the THI data. Please contact the People &amp; Culture team."],
+  network_error:["Couldn't verify your access",'The connection to the access server failed. Reopen the dashboard from the People portal to try again.'],
+};
+function showAccessDenied(code){
+  const [title,body]=ACCESS_MESSAGES[code]||ACCESS_MESSAGES.no_access;
+  const t=document.getElementById('accessDeniedTitle'), b=document.getElementById('accessDeniedText');
+  if(t) t.innerHTML=title;
+  if(b) b.innerHTML=body;
+  document.getElementById('loadingState').style.display='none';
+  const app=document.getElementById('appContent'); if(app) app.style.display='none';
+  document.body.classList.add('thi-locked');
+  document.getElementById('accessDenied').style.display='flex';
 }
 
 async function initAdmin(){

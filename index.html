@@ -10,6 +10,48 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <style>
+    /* ── ACCESS GATE ─────────────────────────────────────────────── */
+    .ad-wrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:calc(100vh - var(--header-h, 64px));margin:-20px -24px -40px;padding:40px 16px;overflow:hidden}
+    .ad-deco{position:absolute;inset:0;pointer-events:none}
+    .ad-deco>*{position:absolute;display:block}
+    .ad-ring{border-radius:50%;background:rgba(20,33,61,.03)}
+    .ad-ring-1{width:420px;height:420px;left:-170px;top:-190px}
+    .ad-ring-2{width:360px;height:360px;right:-120px;bottom:-200px}
+    .ad-grid{left:4%;top:4%;width:300px;height:300px;background-image:linear-gradient(rgba(20,33,61,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(20,33,61,.05) 1px,transparent 1px);background-size:68px 68px;-webkit-mask-image:radial-gradient(circle at 60% 50%,#000 30%,transparent 72%);mask-image:radial-gradient(circle at 60% 50%,#000 30%,transparent 72%)}
+    .ad-dots{width:120px;height:120px;background-image:radial-gradient(rgba(20,33,61,.16) 1.6px,transparent 1.8px);background-size:24px 24px}
+    .ad-dots-l{left:6%;top:56%}
+    .ad-dots-r{right:7%;top:16%;width:168px}
+    .ad-dot{border-radius:50%}
+    .ad-dot-gold1{width:18px;height:18px;background:#FBD27A;left:17%;top:42%}
+    .ad-dot-gold2{width:18px;height:18px;background:#FBD27A;right:8%;bottom:22%}
+    .ad-dot-green{width:18px;height:18px;background:#A8D8B4;right:16%;top:25%}
+    .ad-curve{right:0;bottom:0;width:38%;height:55%}
+    .ad-card{position:relative;z-index:1;width:100%;max-width:600px;background:#fff;border:1px solid rgba(20,33,61,.08);border-radius:22px;padding:40px 48px 30px;text-align:center;box-shadow:0 1px 2px rgba(20,33,61,.04),0 18px 48px rgba(20,33,61,.08)}
+    .ad-illu{display:block;width:100%;max-width:400px;height:auto;margin:0 auto 20px}
+    .ad-lock{width:30px;height:30px;color:#14213D;display:block;margin:0 auto 14px}
+    .ad-title{margin:0 0 12px;font-size:2rem;line-height:1.2;font-weight:800;color:#14213D;letter-spacing:-.01em}
+    .ad-text{margin:0 auto;max-width:440px;font-size:1rem;line-height:1.65;color:#6B7895}
+    .ad-btn{display:inline-flex;align-items:center;gap:12px;min-height:50px;margin-top:26px;padding:0 30px;border-radius:999px;background:#14213D;color:#fff;font-weight:600;font-size:1rem;text-decoration:none;transition:transform .15s,box-shadow .15s,background .15s}
+    .ad-btn svg{width:20px;height:20px}
+    .ad-btn:hover{background:#1e2f54;box-shadow:0 6px 16px rgba(20,33,61,.22);transform:translateY(-1px)}
+    .ad-btn:focus-visible{outline:3px solid #FCA311;outline-offset:3px}
+    .ad-foot{display:flex;align-items:center;justify-content:center;gap:8px;margin:26px 0 0;font-size:.82rem;color:#7A8AAA}
+    .ad-foot svg{width:16px;height:16px;color:#A3AEC4;flex-shrink:0}
+    /* Saat terkunci: filter & menu hanya tampilan, tidak bisa diklik */
+    body.thi-locked .topbar-filters,body.thi-locked .sb-nav,body.thi-locked #sidebarToggle{pointer-events:none}
+    body.thi-locked .topbar-filters{opacity:.7}
+    body.thi-locked .fc-quarter,body.thi-locked .fc-decimals,body.thi-locked .page-footer,body.thi-locked #ambientBtn{display:none!important}
+    @media(max-width:700px){
+      .ad-wrap{margin:-14px -12px -40px}
+      .ad-card{padding:28px 20px 22px;border-radius:18px}
+      .ad-title{font-size:1.5rem}
+      .ad-text{font-size:.92rem}
+      .ad-btn{width:100%;justify-content:center}
+      .ad-grid,.ad-dots,.ad-curve,.ad-dot{display:none}
+    }
+  </style>
 </head>
 <body>
 
@@ -100,6 +142,61 @@
         </div>
       </div>
       <p>Loading survey data…</p>
+    </div>
+
+
+    <!-- ACCESS GATE: tampil kalau tidak ada akses yang valid (tanpa data apa pun) -->
+    <div id="accessDenied" class="ad-wrap" style="display:none">
+      <div class="ad-deco" aria-hidden="true">
+        <span class="ad-ring ad-ring-1"></span><span class="ad-ring ad-ring-2"></span>
+        <span class="ad-grid"></span>
+        <span class="ad-dots ad-dots-l"></span><span class="ad-dots ad-dots-r"></span>
+        <span class="ad-dot ad-dot-gold1"></span><span class="ad-dot ad-dot-gold2"></span><span class="ad-dot ad-dot-green"></span>
+        <svg class="ad-curve" viewBox="0 0 400 300" preserveAspectRatio="none"><path d="M0 300 C 120 260, 260 160, 400 20" fill="none" stroke="#C9D3E6" stroke-width="1.2"/></svg>
+      </div>
+      <section class="ad-card" role="alert">
+        <svg class="ad-illu" viewBox="0 0 420 220" role="img" aria-label="Locked dashboard illustration">
+          <ellipse cx="78" cy="150" rx="62" ry="52" fill="#DCEFE6"/>
+          <ellipse cx="350" cy="148" rx="52" ry="46" fill="#FCEBCB"/>
+          <ellipse cx="300" cy="96" rx="48" ry="40" fill="#E3ECFA"/>
+          <rect x="150" y="14" width="200" height="146" rx="10" fill="#E6EDFB"/>
+          <rect x="170" y="6" width="170" height="20" rx="8" fill="#EEF3FC"/>
+          <rect x="96" y="32" width="226" height="156" rx="9" fill="#FFFFFF" stroke="#DCE3EF"/>
+          <path d="M96 41a9 9 0 0 1 9-9h208a9 9 0 0 1 9 9v9H96z" fill="#1F2F57"/>
+          <circle cx="108" cy="41" r="2.6" fill="#FFFFFF"/><circle cx="117" cy="41" r="2.6" fill="#FFFFFF"/><circle cx="126" cy="41" r="2.6" fill="#FFFFFF"/>
+          <rect x="290" y="39" width="22" height="4" rx="2" fill="#5B6E99"/>
+          <rect x="110" y="62" width="110" height="68" rx="5" fill="#EEF3FC"/>
+          <rect x="124" y="104" width="12" height="18" rx="2" fill="#9DB8EC"/>
+          <rect x="144" y="94" width="12" height="28" rx="2" fill="#9DB8EC"/>
+          <rect x="164" y="84" width="12" height="38" rx="2" fill="#8EABE6"/>
+          <rect x="184" y="72" width="12" height="50" rx="2" fill="#7F9FE0"/>
+          <circle cx="270" cy="88" r="17" fill="none" stroke="#D3E0F7" stroke-width="9"/>
+          <path d="M270 71a17 17 0 0 1 16.2 22.2" fill="none" stroke="#7F9FE0" stroke-width="9"/>
+          <rect x="236" y="116" width="62" height="4" rx="2" fill="#E1E7F1"/>
+          <rect x="236" y="126" width="48" height="4" rx="2" fill="#E1E7F1"/>
+          <rect x="110" y="142" width="96" height="4" rx="2" fill="#E1E7F1"/>
+          <rect x="110" y="152" width="72" height="4" rx="2" fill="#E1E7F1"/>
+          <line x1="14" y1="196" x2="406" y2="196" stroke="#DCE3EF" stroke-width="2" stroke-linecap="round"/>
+          <rect x="42" y="118" width="104" height="72" rx="7" fill="#FFFFFF" stroke="#DCE3EF"/>
+          <rect x="52" y="127" width="30" height="4" rx="2" fill="#C9D6EE"/>
+          <rect x="52" y="135" width="84" height="34" rx="3" fill="#F2F6FD"/>
+          <polyline points="56,162 72,152 86,157 102,144 116,149 130,137" fill="none" stroke="#7F9FE0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="130" cy="137" r="2.8" fill="#7F9FE0"/>
+          <rect x="52" y="176" width="54" height="4" rx="2" fill="#E1E7F1"/>
+          <circle cx="358" cy="38" r="6.5" fill="#F7C65A"/>
+          <ellipse cx="306" cy="198" rx="44" ry="6" fill="#E3E8F1"/>
+          <path d="M288 140v-17a18 18 0 0 1 36 0v17" fill="none" stroke="#1F2F57" stroke-width="9" stroke-linecap="round"/>
+          <rect x="272" y="134" width="68" height="60" rx="9" fill="#1F2F57"/>
+          <circle cx="306" cy="158" r="7" fill="#FFFFFF"/>
+          <path d="M302.5 160h7l-1.6 14h-3.8z" fill="#FFFFFF"/>
+        </svg>
+        <svg class="ad-lock" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><rect x="4.5" y="10.5" width="15" height="11" rx="2.5" fill="currentColor"/><circle cx="12" cy="15.4" r="1.7" fill="#fff"/><rect x="11.2" y="15.6" width="1.6" height="3.4" rx=".8" fill="#fff"/></svg>
+        <h2 id="accessDeniedTitle" class="ad-title">Your dashboard is ready</h2>
+        <p id="accessDeniedText" class="ad-text">This dashboard can only be opened from the People portal with your signed-in IDN Google account.</p>
+        <a class="ad-btn" href="https://people-dashboard-hub.netlify.app/dashboard.html">Go to People Portal
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <p class="ad-foot"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" fill="currentColor"/><path d="M9.5 12l1.8 1.8 3.4-3.6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Access is restricted to authorized IDN users.</p>
+      </section>
     </div>
 
     <div id="appContent" style="display:none">
@@ -481,15 +578,6 @@
     </div>
     <footer class="page-footer">Data as of <span id="footerDate">—</span> · People &amp; Culture Team · IDN</footer>
   </main>
-</div>
-
-<!-- ACCESS DENIED (invalid/missing token) -->
-<div id="accessDenied" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:var(--bg);padding:24px">
-  <div style="text-align:center;max-width:420px">
-    <i class="ti ti-lock" style="font-size:2.6rem;color:#94a3b8"></i>
-    <h2 style="margin:16px 0 8px;color:var(--text);font-size:1.15rem">Access Unavailable</h2>
-    <p style="color:#94a3b8;font-size:.88rem;line-height:1.65">This link is invalid or has expired. Please contact the People &amp; Culture team for a valid access link.</p>
-  </div>
 </div>
 
 <!-- PER-DEPARTMENT REPORT (single page, no sidebar — for sharing with dept managers) -->
