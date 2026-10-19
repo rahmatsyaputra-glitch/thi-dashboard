@@ -54,13 +54,13 @@ const AREAS = [
 const QUESTION_LABELS = [];
 
 // ─── COLUMN DETECTION ─────────────────────────────────────────────────
-let COL = { dept: 4, tenure: 5, q_start: 6, q_end: 49, q45: 50, q46: 51, city: 3, email: 1 };
+let COL = { dept: 4, tenure: 5, q_start: 6, q_end: 49, q45: 50, q46: 51, city: 3, email: 1, level: -1 };
 let CHECKLIST_COLS = [];
 let OTHER_V_COLS = [];
 let OTHER_X_COLS = [];
 
 function detectColumns(headerRow) {
-  let col = { dept: 4, tenure: 5, q_start: 6, q_end: 49, q45: 50, q46: 51, city: 3, email: 1 };
+  let col = { dept: 4, tenure: 5, q_start: 6, q_end: 49, q45: 50, q46: 51, city: 3, email: 1, level: -1 };
   let checklistCols = [];
   let otherVCols = [], otherXCols = [];
   let deptIdx = -1, tenureIdx = -1, qStart = -1, q45Idx = -1, q46Idx = -1, cityIdx = -1, emailIdx = -1;
@@ -69,6 +69,10 @@ function detectColumns(headerRow) {
     const c  = (cell || '').trim();
     const cl = c.toLowerCase();
 
+    // "__level": disisipkan gateway untuk user department (level HR dari
+    // sheet Participant), karena email di sana sudah dianonimkan dan join
+    // email di parsePopulation tidak bisa dipakai.
+    if (c === '__level') { col.level = i; return; }
     if (cl === 'email address' || cl === 'email') { emailIdx = i; return; }
     if (cl.includes('office location') || cl === 'city') { cityIdx = i; return; }
     if (c === 'Team' || cl === 'team') { deptIdx = i; return; }
@@ -166,7 +170,9 @@ function parseRow(row, col, checklistCols) {
     dept:      normalizeTeam(row[col.dept]),
     deptGroup: getDeptGroup(normalizeTeam(row[col.dept])),
     tenure:    parseTenure(row[col.tenure]),
-    level:     null, // only ever comes from the roster join — no self-reported fallback exists for this one
+    // Level: untuk user department diambil dari kolom "__level" kiriman gateway;
+    // untuk admin kolom itu tidak ada, jadi level diisi oleh roster join di parsePopulation.
+    level:     col.level > -1 ? normalizeLevel(row[col.level]) : null,
     qs,
     q45:       escapeHtml(row[col.q45] || ''),
     q46:       escapeHtml(row[col.q46] || ''),
